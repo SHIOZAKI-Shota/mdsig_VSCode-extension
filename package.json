@@ -1,0 +1,281 @@
+{
+  "name": "mdsig",
+  "displayName": "md-signature",
+  "description": "%ext.description%",
+  "version": "0.1.0",
+  "publisher": "mdsig",
+  "license": "MIT",
+  "private": true,
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SHIOZAKI-Shota/mdsig_VSCode-extension.git"
+  },
+  "homepage": "https://mdsig.dev/",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "signature",
+    "e-signature",
+    "md-signature"
+  ],
+  "l10n": "./l10n",
+  "main": "./dist/node.js",
+  "browser": "./dist/web.js",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%ext.untrusted%"
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdsig.sign",
+        "title": "%cmd.sign%",
+        "category": "md-signature",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "mdsig.verify",
+        "title": "%cmd.verify%",
+        "category": "md-signature",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "mdsig.timestamp",
+        "title": "%cmd.timestamp%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.openView",
+        "title": "%cmd.openView%",
+        "category": "md-signature",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "mdsig.showDetails",
+        "title": "%cmd.showDetails%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.acceptNewKey",
+        "title": "%cmd.acceptNewKey%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.setupKey",
+        "title": "%cmd.setupKey%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.manageKeys",
+        "title": "%cmd.manageKeys%",
+        "category": "md-signature"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mdsig.openView",
+          "when": "editorLangId == markdown",
+          "group": "navigation@90"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mdsig.sign",
+          "when": "!isWeb"
+        },
+        {
+          "command": "mdsig.timestamp",
+          "when": "!isWeb"
+        },
+        {
+          "command": "mdsig.setupKey",
+          "when": "!isWeb"
+        },
+        {
+          "command": "mdsig.manageKeys",
+          "when": "!isWeb"
+        },
+        {
+          "command": "mdsig.acceptNewKey",
+          "when": "false"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mdsig",
+          "title": "md-signature",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "mdsig": [
+        {
+          "type": "webview",
+          "id": "mdsig.panel",
+          "name": "%view.panel%"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "md-signature",
+      "properties": {
+        "mdsig.verify.network": {
+          "type": "string",
+          "enum": [
+            "trusted",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "%cfg.network.trusted%",
+            "%cfg.network.always%",
+            "%cfg.network.never%"
+          ],
+          "default": "trusted",
+          "description": "%cfg.network%"
+        },
+        "mdsig.verify.checkRevocation": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.checkRevocation%"
+        },
+        "mdsig.verify.fetchResources": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.fetchResources%"
+        },
+        "mdsig.keyDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%cfg.keyDirectories%"
+        },
+        "mdsig.keyserver": {
+          "type": "string",
+          "default": "",
+          "description": "%cfg.keyserver%"
+        },
+        "mdsig.tsaUrl": {
+          "type": "string",
+          "default": "http://ts.ssl.com",
+          "description": "%cfg.tsaUrl%"
+        },
+        "mdsig.tsaRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "%cfg.tsaRoots%"
+        },
+        "mdsig.keyFile": {
+          "type": "string",
+          "default": "",
+          "description": "%cfg.keyFile%"
+        },
+        "mdsig.preview.showHiddenContent": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.showHidden%"
+        },
+        "mdsig.view.fullText": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.fullText%"
+        },
+        "mdsig.warnFormatters": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.warnFormatters%"
+        }
+      }
+    },
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./media/preview.css"
+    ],
+    "walkthroughs": [
+      {
+        "id": "mdsig.start",
+        "title": "%walk.title%",
+        "description": "%walk.description%",
+        "when": "!isWeb",
+        "steps": [
+          {
+            "id": "key",
+            "title": "%walk.key.title%",
+            "description": "%walk.key.description%",
+            "media": {
+              "markdown": "media/walkthrough/key.md"
+            },
+            "completionEvents": [
+              "onCommand:mdsig.setupKey"
+            ]
+          },
+          {
+            "id": "sign",
+            "title": "%walk.sign.title%",
+            "description": "%walk.sign.description%",
+            "media": {
+              "markdown": "media/walkthrough/sign.md"
+            },
+            "completionEvents": [
+              "onCommand:mdsig.sign"
+            ]
+          },
+          {
+            "id": "verify",
+            "title": "%walk.verify.title%",
+            "description": "%walk.verify.description%",
+            "media": {
+              "markdown": "media/walkthrough/verify.md"
+            },
+            "completionEvents": [
+              "onCommand:mdsig.openView"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/unit/*.test.ts",
+    "test:integration": "node scripts/build.mjs && node test/integration/run.mjs",
+    "test:web": "node scripts/build.mjs && vscode-test-web --extensionDevelopmentPath=. --headless --browserType=chromium test/fixtures",
+    "package": "node scripts/build.mjs --production && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "@mdsig/core": "0.0.3",
+    "bcrypt-pbkdf": "1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "1.95.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/test-web": "0.0.81",
+    "@vscode/vsce": "4.1.1",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.0"
+  }
+}

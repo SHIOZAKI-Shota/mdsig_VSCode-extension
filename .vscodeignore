@@ -1,0 +1,14 @@
+**
+!dist/node.js
+!dist/web.js
+!dist/view.js
+!dist/form.js
+!media/**
+!l10n/**
+!package.json
+!package.nls.json
+!package.nls.ja.json
+!README.md
+!README.en.md
+!LICENSE
+!CHANGELOG.md

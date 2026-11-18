@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-21.25 -61 332 332">
+  <defs>
+    <mask id="gap" maskUnits="userSpaceOnUse" x="-50" y="-50" width="420" height="320">
+      <rect x="-50" y="-50" width="420" height="320" fill="#fff"/>
+      <polyline points="103.179,112.284 146.25,155.355 297.321,4.284" fill="none" stroke="#000" stroke-width="50" stroke-linejoin="miter" stroke-miterlimit="10"/>
+      <!-- ✓ の長い辺の外側（右下）には # を出さない -->
+      <polygon points="384.96,-50 420,-50 420,270 64.96,270" fill="#000"/>
+    </mask>
+  </defs>
+  <g mask="url(#gap)">
+    <g fill="#000" transform="matrix(1 0 -0.25 1 26.25 0)">
+      <rect x="60"  y="0"   width="30" height="210"/>
+      <rect x="120" y="0"   width="30" height="210"/>
+      <rect x="0"   y="60"  width="210" height="30"/>
+      <rect x="0"   y="120" width="210" height="30"/>
+    </g>
+  </g>
+  <polyline points="110.25,119.355 146.25,155.355 290.25,11.355" fill="none" stroke="#000" stroke-width="30" stroke-linejoin="miter" stroke-miterlimit="10"/>
+</svg>
