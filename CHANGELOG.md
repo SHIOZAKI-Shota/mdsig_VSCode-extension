@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - Uses `@mdsig/core` 0.0.5 (format 0.0.4).
 - Signing as an email address (`method: directory`, SPEC 4.7) is enabled. The signer is lower-cased and the public key is embedded by default. Before signing, the extension checks that the key directory publishes the key and asks before signing with a key that is not published yet.

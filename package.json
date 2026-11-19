@@ -2,7 +2,7 @@
   "name": "mdsig",
   "displayName": "md-signature",
   "description": "%ext.description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "mdsig",
   "preview": true,
   "license": "MIT",
