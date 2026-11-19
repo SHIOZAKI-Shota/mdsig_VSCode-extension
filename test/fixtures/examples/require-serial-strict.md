@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8
@@ -28,32 +28,32 @@ require: |
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:9rcH0nttb3TuJviWwN9k8IpktLnD1xUydQK6rWypq4p0kcccXw/FOuyzKOcKN1waD1wQs
-  b1awoXY7qpjgH6eDA==
+  base64:gK6s0acsFLakc7FTrpMdAp11AzFm9U4cSH+XMbFFh/jhmuJqSSiCGYtoV6gr0jFCAVdaM
+  OLqgF4YxgHu+/9RDw==
 -->
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
 role: reviewer
 ts: 2026-11-16T09:20:00Z
 alg: ed25519
-hash: sha256:d52e2cd074687ff7b762bb1ceb85259bc71c386945586c3072b31db74dab19d6
+hash: sha256:9f7c24a1910b49b1702ace609c8a3cb9a48221de98d4576ab0f70b3fb13d629e
 sig: |
-  base64:qOZbC58FJtQ7hr32jpoHSXWyC8N7je8FNvpMGgyjeVLpcjSFKidMRg6v+LPz9jJyFwcOW
-  cWzrdHFNRAdHP6sDg==
+  base64:MSJl2O+xcQqAArlBeIUzlz7s/WT5UyhwXuACEGkw9A0DSqlYGkJS/ByVV17IdsaVweBih
+  RpJKrnPqL8k/ykADg==
 -->
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: dns
 signer: example.com
 selector: 2026
 role: approver
 ts: 2026-11-16T09:30:00Z
 alg: ed25519
-hash: sha256:46a1e27ce3fe6fdacc1c8c0f497410f6f1f6539ea325e6a4e89b3d7f01d48c5b
+hash: sha256:7222e4cacaac658e339befb580eff07c5ded143c5ddb40a754b486978f54a8a8
 sig: |
-  base64:uBz5tG3I4oisVwTF3BnCQLblr6ERDFCyeOYXgnm+Kb3rRvaeWvJeFZu8fPJPN45dEUmat
-  PVogNBwvbVsOD2fDQ==
+  base64:Zktu+v0kx2F38ehijL3HYRzi4v7rJJI5mtoQjrWbF7GBfCFHwpM7Sdss33B4FJc4rH79w
+  pCqS6TBTqGQSWxDBg==
 -->

@@ -141,8 +141,6 @@ body[data-mode="sign"], body[data-mode="setup"] { max-width: 680px; padding: 28p
 .method input { grid-row: span 2; margin-top: 4px; }
 .method .m-title { font-weight: 600; }
 .method .m-desc { color: var(--muted); font-size: 12px; }
-.method.disabled { cursor: default; }
-.method.disabled .m-title, .method.disabled .m-desc { opacity: 0.5; }
 .field { display: grid; gap: 5px; margin: 0 0 14px; }
 .field label, .field .label { font-weight: 600; font-size: 12.5px; }
 .hint { margin: 0; color: var(--muted); font-size: 12px; }
@@ -165,3 +163,9 @@ pre.key { white-space: pre-wrap; word-break: break-all; font-family: var(--mono)
 .publish > section + section { border-top: 1px solid var(--line); }
 .field input, .field select, .field textarea { width: 100%; box-sizing: border-box; min-width: 0; }
 body[data-mode="panel"] .sig-top .status { flex-basis: 100%; margin-left: 0; }
+.newkey { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 12px; border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--ruri) 30%, transparent); background: var(--ruri-soft); }
+.newkey .nk-info { display: grid; gap: 2px; min-width: 0; font-size: 12px; color: var(--ruri-text); }
+.newkey code { font-family: var(--mono); font-size: 11px; color: var(--ink-2); overflow-wrap: anywhere; }
+.newkey .nk-note { color: var(--ink-2); }
+.newkey button { flex: none; white-space: nowrap; }
+body[data-mode="panel"] .newkey { flex-wrap: wrap; }

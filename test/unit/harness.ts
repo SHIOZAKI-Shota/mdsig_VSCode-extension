@@ -36,5 +36,5 @@ const loadResource = async (ref: string) => {
 export async function entry(file: string): Promise<Entry> {
   const text = read(file);
   const result: VerifyResult = await verifyDocument(text, { resolvers, fetch, loadResource, now: new Date(keys.now) });
-  return { uri: `file:///${file}`, version: 1, text, online: true, result, layout: layout(text) };
+  return { uri: `file:///${file}`, version: 1, text, online: true, result, layout: layout(text), newKeys: [] };
 }

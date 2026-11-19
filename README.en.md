@@ -31,12 +31,18 @@ The Markdown preview does not show HTML comments in the body, yet the words insi
 
 ![Preview of a quote: an extra clause hidden in a comment is shown in a dashed box](docs/images/en/preview.png)
 
+The Problems panel also warns about such content: hidden comments, elements a preview may remove (such as `<script>`), raw HTML, invisible or direction-changing characters, link reference definitions, links whose text differs from the destination, and external images (SPEC 9.5). Section markers (`<!-- mdsig:section … -->`) are not warned about; the preview shows `§ <id>` where each section starts.
+
+## Trusting a key seen for the first time
+
+A `tofu` (key only) signature proves that the document has not changed, but not who signed it. The extension does not store a key it sees for the first time on its own. As with a new SSH host, the CodeLens and the signature view show "Key seen for the first time · Trust…" with the fingerprint. Trust the key if the fingerprint is what the signer told you. After that, a document from the same signer with a different key is invalid (`key-changed`). To stop trusting a signer, run "md-signature: Manage Trusted Signers".
+
 ## Sign from a form
 
 No commands or options to remember. The Sign button in the sidebar opens a form:
 
-1. Choose how readers check your signature (GitHub or GitLab account, company or personal domain, OpenPGP key, or the key only).
-2. Enter the account or domain and pick a key. Keys are found for you and shown by name.
+1. Choose how readers check your signature (GitHub or GitLab account, company or personal domain, email address, OpenPGP key, or the key only).
+2. Enter the account, domain, or email address and pick a key. Keys are found for you and shown by name.
 3. Add a role or comment if you like, and press Sign.
 
 A timestamp from a time-stamping authority is added by default. An expiry date, signing only some sections, and the signatures still needed after yours are under More options.
@@ -46,6 +52,8 @@ A timestamp from a time-stamping authority is added by default. An expiry date, 
 ## Set up a key without leaving the editor
 
 If you have no signing key, the extension makes one and keeps it in the system keychain (the macOS Keychain, for example). It then walks you through publishing the public key on GitHub or in your domain's DNS, and checks that it is published. You can also save the key to `~/.ssh` to use it with the `mdsig` command line.
+
+Without a domain of your own, you can sign as an email address (`method: directory`). The command "md-signature: Register a Key with a Key Directory" sends your public key to a key directory: the one named by `dir=` in the `_mdsig` TXT record of your email domain, or else the first trusted directory (`https://keys.mdsig.dev` by default). The key is published after you open the link in the confirmation email. If you sign before that, the extension asks you to confirm.
 
 <img src="docs/images/en/key-setup.png" alt="The key setup page" width="560">
 
@@ -68,7 +76,7 @@ OpenPGP signing uses `gpg`. Passkeys cannot sign inside VS Code; use the [mdsig.
 
 ## Shared with the command line
 
-On desktop, the extension reads and writes the same files as `mdsig verify`: `known_signers.json` (keys first seen for `tofu` signatures) and `key_directories.json` (trusted key directories), in the `mdsig` folder of your user configuration directory. Verifying with the extension or with the command line uses the same records.
+On desktop, the extension reads and writes the same files as `mdsig verify`: `known_signers.json` (keys trusted for `tofu` signatures) and `key_directories.json` (trusted key directories), in the `mdsig` folder of your user configuration directory. Verifying with the extension or with the command line uses the same records.
 
 ## Network and safety
 

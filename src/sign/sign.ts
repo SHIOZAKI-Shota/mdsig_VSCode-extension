@@ -1,13 +1,16 @@
 import * as vscode from "vscode";
 import * as os from "node:os";
 import {
+  DEFAULT_KEY_DIRECTORIES,
   DEFAULT_RESOLVERS,
   DEFAULT_TSA_URL,
+  directoriesFromRecords,
   dohTxt,
   findSections,
   formatSshPublicKey,
   parseDocument,
   publicHostFetch,
+  registerWithDirectory,
   signDocument,
   sshFingerprint,
   timestampDocument,
@@ -24,7 +27,7 @@ const t = vscode.l10n.t;
 const LAST = "mdsig.lastSigner";
 
 interface SignRequest {
-  method: Method | "directory";
+  method: Method;
   signer: string;
   selector?: string;
   key: string;
@@ -38,6 +41,10 @@ interface SignRequest {
   embedKey: boolean;
   force: boolean;
 }
+
+const netFetch = () => publicHostFetch(globalThis.fetch.bind(globalThis));
+const signerId = (r: SignRequest) => (r.method === "directory" ? r.signer.trim().toLowerCase() : r.signer.trim());
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 const fileName = (uri: vscode.Uri) => uri.path.split("/").pop() ?? uri.toString();
 
@@ -57,7 +64,7 @@ function formStrings(): Record<string, string> {
     "m.dns": t("Company or personal domain"),
     "m.dns.d": t("Readers check your signature with a key published in your domain's DNS."),
     "m.directory": t("Email address"),
-    "m.directory.d": t("Uses a key directory that confirmed your email address. Available once the directory service starts."),
+    "m.directory.d": t("Readers check your signature with the key that a key directory confirmed for your email address."),
     "m.pgp": t("OpenPGP key"),
     "m.pgp.d": t("Uses your OpenPGP key from gpg. Readers find it by email address."),
     "m.tofu": t("This key only"),
@@ -139,12 +146,13 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
     if (!choice) throw new Error(t("Choose a key."));
     const signer: Signer | PgpSigner = await signerFor(choice, store, askPassphrase);
     if (r.method === "git-hosting" && signer.alg === "ed25519") await warnIfUnpublished(r, signer);
+    if (r.method === "directory" && signer.alg === "ed25519" && !(await warnIfNotInDirectory(r, signer))) return;
     const text = doc.getText();
     const res = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t("Signing…") }, () =>
       signDocument(text, {
         signer,
-        method: r.method as Method,
-        signerId: r.signer.trim(),
+        method: r.method,
+        signerId: signerId(r),
         ...(r.selector ? { selector: r.selector.trim() } : {}),
         ...(r.role ? { role: r.role } : {}),
         ...(r.reason ? { reason: r.reason.trim() } : {}),
@@ -152,7 +160,7 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
         ...(r.scope.length ? { scope: r.scope } : {}),
         ...(r.require?.trim() ? { require: r.require.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) } : {}),
         ...(r.timestamp ? { tsaUrl: r.tsaUrl || DEFAULT_TSA_URL } : {}),
-        ...((r.method as string) === "dns" || (r.method as string) === "git-hosting" || (r.method as string) === "directory" ? { embedKey: r.embedKey } : {}),
+        ...(r.method === "dns" || r.method === "git-hosting" || r.method === "directory" ? { embedKey: r.embedKey } : {}),
         fetch: globalThis.fetch.bind(globalThis),
         force: r.force,
       }),
@@ -162,11 +170,11 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
     const edit = new vscode.WorkspaceEdit();
     edit.replace(doc.uri, new vscode.Range(doc.positionAt(0), doc.positionAt(text.length)), res.text);
     if (!(await vscode.workspace.applyEdit(edit))) throw new Error(t("Could not update the document."));
-    await context.globalState.update(LAST, { ...context.globalState.get<Record<string, string>>(LAST, {}), [r.method]: r.signer.trim(), key: r.key });
+    await context.globalState.update(LAST, { ...context.globalState.get<Record<string, string>>(LAST, {}), [r.method]: signerId(r), key: r.key });
     panel?.dispose();
     await ctl.verify(doc, { online: true });
     const save = t("Save");
-    const pick = await vscode.window.showInformationMessage(t("Signed as {0}. Save the file to keep the signature.", r.signer.trim()), save);
+    const pick = await vscode.window.showInformationMessage(t("Signed as {0}. Save the file to keep the signature.", signerId(r)), save);
     if (pick === save) await doc.save();
     void vscode.commands.executeCommand("mdsig.openView", doc.uri);
   };
@@ -174,13 +182,32 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
   const warnIfUnpublished = async (r: SignRequest, signer: Signer) => {
     try {
       const fp = await sshFingerprint(signer.publicKey);
-      const found = await DEFAULT_RESOLVERS["git-hosting"]!({ signer: r.signer.trim(), method: "git-hosting", alg: "ed25519", key_fp: fp }, { fetch: publicHostFetch(globalThis.fetch.bind(globalThis)) });
+      const found = await DEFAULT_RESOLVERS["git-hosting"]!({ signer: r.signer.trim(), method: "git-hosting", alg: "ed25519", key_fp: fp }, { fetch: netFetch() });
       if (found.keys.length) return;
     } catch {
     }
     const go = t("Sign anyway");
     const pick = await vscode.window.showWarningMessage(t("This key is not published on {0} yet, so readers cannot check the signature until you add it to the account.", r.signer.trim()), { modal: true }, go);
     if (pick !== go) throw new Error(t("Cancelled"));
+  };
+
+  const warnIfNotInDirectory = async (r: SignRequest, signer: Signer): Promise<boolean> => {
+    const email = signerId(r);
+    try {
+      const found = await DEFAULT_RESOLVERS.directory!({ signer: email, method: "directory", alg: "ed25519" }, { fetch: netFetch(), extraKeyDirectories: await ctl.keyDirectories() });
+      if (found.keys.some((k) => sameBytes(k.key, signer.publicKey))) return true;
+    } catch {
+    }
+    const go = t("Sign anyway");
+    const register = t("Register the key");
+    const pick = await vscode.window.showWarningMessage(t("This key is not published for {0} in a key directory yet. Readers cannot check the signature until the key is registered and you confirm the address from the email the directory sends.", email), { modal: true }, go, register);
+    if (pick === go) return true;
+    if (pick === register) {
+      panel?.dispose();
+      void vscode.commands.executeCommand("mdsig.registerKeyDirectory", r.key, email);
+      return false;
+    }
+    throw new Error(t("Cancelled"));
   };
 
   const open = (uri?: vscode.Uri) => {
@@ -261,6 +288,9 @@ function setupStrings(): Record<string, string> {
     notYet: t("Not found yet. Publishing can take a minute; try again."),
     export: t("Also save it to ~/.ssh for the mdsig command line"),
     exported: t("Saved to {0}"),
+    directory: t("Email address"),
+    directorySteps: t("Register the public key with a key directory. The directory sends a confirmation email, and the key is published after you open the link in it."),
+    registerDirectory: t("Register with a key directory"),
     done: t("Sign a document"),
   };
 }
@@ -315,6 +345,7 @@ export function registerKeySetup(context: vscode.ExtensionContext, store: KeySto
           if (ok) await context.globalState.update(LAST, { ...context.globalState.get<Record<string, string>>(LAST, {}), dns: domain, key: `stored:${current.id}` });
           post({ type: "checked", ok });
         }
+        if (m.type === "registerDirectory" && current) void vscode.commands.executeCommand("mdsig.registerKeyDirectory", `stored:${current.id}`);
         if (m.type === "export" && current) post({ type: "exported", path: await store.exportOpenSsh(current.id) });
         if (m.type === "sign") {
           panel?.dispose();
@@ -349,6 +380,68 @@ export function registerManageKeys(store: KeyStore): vscode.Disposable {
       const yes = t("Delete");
       const sure = await vscode.window.showWarningMessage(t("Delete the key \"{0}\"? Documents you signed stay valid only while the public key stays published.", pick.meta.label), { modal: true }, yes);
       if (sure === yes) await store.remove(pick.meta.id);
+    }
+  });
+}
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+async function pickDirectory(email: string, trusted: string[]): Promise<string> {
+  const domain = email.slice(email.lastIndexOf("@") + 1);
+  let records: string[];
+  try {
+    records = await dohTxt(`_mdsig.${domain}`, { fetch: netFetch() });
+  } catch (e) {
+    throw new Error(t("Could not look up the DNS records of {0}: {1}", domain, (e as Error).message));
+  }
+  const named = directoriesFromRecords(records);
+  if (named.length > 1) throw new Error(t("_mdsig.{0} names {1} different key directories, so readers cannot find the key. Keep one dir= value.", domain, named.length));
+  return named[0] ?? [...new Set([...DEFAULT_KEY_DIRECTORIES, ...trusted].map((d) => d.replace(/\/+$/, "")))][0]!;
+}
+
+export function registerKeyDirectory(ctl: VerifyController, store: KeyStore): vscode.Disposable {
+  return vscode.commands.registerCommand("mdsig.registerKeyDirectory", async (keyId?: string, presetEmail?: string) => {
+    const choices = await listKeyChoices(store, { pgp: false });
+    if (!choices.length) {
+      const create = t("Create a key");
+      if ((await vscode.window.showInformationMessage(t("No key found. Create one first."), create)) === create) void vscode.commands.executeCommand("mdsig.setupKey");
+      return;
+    }
+    let choice = typeof keyId === "string" ? choices.find((c) => c.id === keyId) : undefined;
+    if (!choice) {
+      const pick = await vscode.window.showQuickPick(choices.map((c) => ({ label: c.label, description: c.detail, choice: c })), { title: t("Key to register") });
+      if (!pick) return;
+      choice = pick.choice;
+    }
+    const input = await vscode.window.showInputBox({
+      title: t("Register with a key directory"),
+      prompt: t("Email address to sign as"),
+      placeHolder: "you@example.com",
+      value: typeof presetEmail === "string" ? presetEmail : "",
+      ignoreFocusOut: true,
+      validateInput: (v) => (EMAIL_RE.test(v.trim()) ? undefined : t("Enter an email address.")),
+    });
+    if (input === undefined) return;
+    const email = input.trim().toLowerCase();
+    let dir: string | undefined;
+    try {
+      dir = await pickDirectory(email, await ctl.keyDirectories());
+      const fp = choice.fingerprint ?? choice.label;
+      const go = t("Register");
+      const ok = await vscode.window.showInformationMessage(t("Register the key {0} for {1} with {2}? The directory sends a confirmation email to this address.", fp, email, dir), { modal: true }, go);
+      if (ok !== go) return;
+      const signer = await signerFor(choice, store, async (prompt) => vscode.window.showInputBox({ prompt, password: true, ignoreFocusOut: true }));
+      if (signer.alg !== "ed25519") throw new Error(t("Only Ed25519 keys can be registered."));
+      try {
+        const target = dir;
+        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t("Sending the registration…") }, () => registerWithDirectory(target, email, signer, { label: os.hostname().replace(/\.local$/, ""), fetch: netFetch() }));
+      } finally {
+        if ("dispose" in signer) (signer as { dispose(): void }).dispose();
+      }
+      await vscode.window.showInformationMessage(t("Registration sent. Open the link in the email sent to {0}; the key is published on {1} after that.", email, dir));
+    } catch (e) {
+      const msg = e instanceof TypeError ? t("The server could not be reached. Check the network connection, or try again later.") : (e as Error).message || String(e);
+      void vscode.window.showErrorMessage(dir ? t("Could not register the key with {0}: {1}", dir, msg) : msg);
     }
   });
 }

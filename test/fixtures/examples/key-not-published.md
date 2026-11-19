@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:F34nin7tcaYH6WR5LSWSfj6weFBPfBpuyUUoPFP9YjA
@@ -23,6 +23,6 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:AjDoIpEj6sB0fw8q4J/xQz2dstR/6t0TVeXMLNczVjEh0DsyZdSR40vXdIxs15pK/eIzM
-  J8SeE9Ke82NKYg7Cg==
+  base64:w8gz/Plg/HBV7j7XKM1x2Yp3aO/K9HazXQMSyz9+MKW8AHpWeL3ec5eY5vrad5/j+ydZO
+  LbLSjGQk/UJMyWwBA==
 -->

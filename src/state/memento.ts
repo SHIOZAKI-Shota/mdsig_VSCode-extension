@@ -1,15 +1,13 @@
 import type * as vscode from "vscode";
-import type { TofuStore } from "@mdsig/core";
+import type { KnownSigners } from "../verify/tofu.ts";
 
-export class MementoTofuStore implements TofuStore {
-  private readonly state: vscode.Memento;
-  constructor(state: vscode.Memento) {
-    this.state = state;
-  }
-  get(signer: string): string | undefined {
-    return this.state.get<Record<string, string>>("mdsig.knownSigners", {})[signer];
-  }
-  async set(signer: string, pubkey: string): Promise<void> {
-    await this.state.update("mdsig.knownSigners", { ...this.state.get<Record<string, string>>("mdsig.knownSigners", {}), [signer]: pubkey });
-  }
-}
+const KEY = "mdsig.knownSigners";
+
+export const mementoKnownSigners = (state: vscode.Memento): KnownSigners => ({
+  read: async () => state.get<Record<string, string>>(KEY, {}),
+  async update(change) {
+    const current = { ...state.get<Record<string, string>>(KEY, {}) };
+    change(current);
+    await state.update(KEY, current);
+  },
+});

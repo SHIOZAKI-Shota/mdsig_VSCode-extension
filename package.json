@@ -4,6 +4,7 @@
   "description": "%ext.description%",
   "version": "0.1.0",
   "publisher": "mdsig",
+  "preview": true,
   "license": "MIT",
   "private": true,
   "icon": "media/icon.png",
@@ -81,6 +82,21 @@
         "command": "mdsig.manageKeys",
         "title": "%cmd.manageKeys%",
         "category": "md-signature"
+      },
+      {
+        "command": "mdsig.registerKeyDirectory",
+        "title": "%cmd.registerKeyDirectory%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.trustKey",
+        "title": "%cmd.trustKey%",
+        "category": "md-signature"
+      },
+      {
+        "command": "mdsig.manageTrustedSigners",
+        "title": "%cmd.manageTrustedSigners%",
+        "category": "md-signature"
       }
     ],
     "menus": {
@@ -109,7 +125,15 @@
           "when": "!isWeb"
         },
         {
+          "command": "mdsig.registerKeyDirectory",
+          "when": "!isWeb"
+        },
+        {
           "command": "mdsig.acceptNewKey",
+          "when": "false"
+        },
+        {
+          "command": "mdsig.trustKey",
           "when": "false"
         }
       ]
@@ -266,8 +290,9 @@
     "package": "node scripts/build.mjs --production && vsce package --no-dependencies"
   },
   "dependencies": {
-    "@mdsig/core": "0.0.3",
-    "bcrypt-pbkdf": "1.0.2"
+    "@mdsig/core": "0.0.5",
+    "bcrypt-pbkdf": "1.0.2",
+    "marked": "18.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

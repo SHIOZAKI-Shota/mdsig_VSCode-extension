@@ -104,8 +104,9 @@ export class SignatureView implements vscode.Disposable {
     }
   }
 
-  private onMessage(m: { type: string; line?: number; id?: string }) {
+  private onMessage(m: { type: string; line?: number; id?: string; signer?: string; key?: string; fingerprint?: string }) {
     if (m.type === "ready") this.push();
+    if (m.type === "trust") void vscode.commands.executeCommand("mdsig.trustKey", this.uri, m.signer, m.key, m.fingerprint);
     if (m.type === "jump" && m.line) void jump(this.uri, m.line);
     if (m.type === "accept" && this.uri) void vscode.commands.executeCommand("mdsig.acceptNewKey", this.uri);
     if (m.type === "command" && m.id?.startsWith("mdsig.")) void vscode.commands.executeCommand(m.id, this.uri);
@@ -144,9 +145,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
     this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extUri, "media"), vscode.Uri.joinPath(this.extUri, "dist")] };
     view.webview.html = webviewHtml(view.webview, this.extUri, "panel", "view.js", this.isWeb);
-    view.webview.onDidReceiveMessage((m: { type: string; line?: number; id?: string }) => {
+    view.webview.onDidReceiveMessage((m: { type: string; line?: number; id?: string; signer?: string; key?: string; fingerprint?: string }) => {
       const uri = lastMarkdownEditor()?.document.uri;
       if (m.type === "ready") this.push();
+      if (m.type === "trust") void vscode.commands.executeCommand("mdsig.trustKey", uri, m.signer, m.key, m.fingerprint);
       if (m.type === "jump" && m.line) void jump(uri, m.line);
       if (m.type === "accept" && uri) void vscode.commands.executeCommand("mdsig.acceptNewKey", uri);
       if (m.type === "command" && m.id?.startsWith("mdsig.")) void vscode.commands.executeCommand(m.id, uri);

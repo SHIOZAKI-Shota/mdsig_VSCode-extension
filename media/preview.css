@@ -17,3 +17,5 @@
 .mdsig-hidden-label { font-weight: 600; margin-right: 4px; }
 .mdsig-char { padding: 0 3px; border: 1px solid currentColor; border-radius: 3px; color: #8a5d00; font-family: var(--vscode-editor-font-family, monospace); font-size: 0.82em; }
 .vscode-dark .mdsig-char { color: #e8bd55; }
+.mdsig-section { display: block; margin: 1.2em 0 0.2em; font-family: var(--vscode-editor-font-family, monospace); font-size: 0.78em; color: var(--vscode-descriptionForeground, #6b7682); }
+.mdsig-section + h1, .mdsig-section + h2, .mdsig-section + h3, .mdsig-section + p, .mdsig-section + table { margin-top: 0; }

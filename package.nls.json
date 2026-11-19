@@ -31,5 +31,8 @@
   "walk.sign.title": "Sign a document",
   "walk.sign.description": "Open a Markdown file and sign it from the form.\n[Sign the open document](command:mdsig.sign)",
   "walk.verify.title": "Check signatures",
-  "walk.verify.description": "See who signed, and which part each signature covers.\n[Open the signature view](command:mdsig.openView)"
+  "walk.verify.description": "See who signed, and which part each signature covers.\n[Open the signature view](command:mdsig.openView)",
+  "cmd.trustKey": "Trust a Signer's Key",
+  "cmd.manageTrustedSigners": "Manage Trusted Signers",
+  "cmd.registerKeyDirectory": "Register a Key with a Key Directory"
 }

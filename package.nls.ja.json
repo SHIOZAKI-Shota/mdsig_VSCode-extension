@@ -31,5 +31,8 @@
   "walk.sign.title": "文書に署名",
   "walk.sign.description": "Markdown ファイルを開き、フォームから署名します。\n[開いている文書に署名](command:mdsig.sign)",
   "walk.verify.title": "署名を確認",
-  "walk.verify.description": "誰が署名したか、各署名がどの範囲を対象とするかを確認します。\n[署名ビューを開く](command:mdsig.openView)"
+  "walk.verify.description": "誰が署名したか、各署名がどの範囲を対象とするかを確認します。\n[署名ビューを開く](command:mdsig.openView)",
+  "cmd.trustKey": "署名者の鍵を信頼",
+  "cmd.manageTrustedSigners": "信頼済みの署名者を管理",
+  "cmd.registerKeyDirectory": "鍵ディレクトリに鍵を登録"
 }

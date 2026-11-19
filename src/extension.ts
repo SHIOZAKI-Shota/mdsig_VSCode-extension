@@ -4,6 +4,7 @@ import { registerCodeLens, registerDecorations, registerDiagnostics, registerHov
 import { SidebarProvider, SignatureView } from "./view/panels.ts";
 import { registerFormatterWarnings } from "./formatter.ts";
 import { previewPlugin } from "./preview/plugin.ts";
+import { keyFingerprint } from "@mdsig/core";
 
 const t = vscode.l10n.t;
 
@@ -56,6 +57,34 @@ export function activateShared(context: vscode.ExtensionContext, host: Host): Ac
       if (pick !== ok) return;
       ctl.acceptNewKey(doc.uri);
       await ctl.verify(doc, { online: true });
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("mdsig.trustKey", async (uri: vscode.Uri | undefined, signer: string, key: string, fingerprint: string) => {
+      if (!signer || !key) return;
+      const ok = t("Trust");
+      const pick = await vscode.window.showInformationMessage(
+        t("Trust this key for {0}?", signer),
+        { modal: true, detail: t("{0}\n\nCheck the fingerprint with the signer through another channel if you can. Later documents from {1} with a different key will be reported.", fingerprint, signer) },
+        ok,
+      );
+      if (pick !== ok) return;
+      await ctl.trustKey(signer, key);
+      const doc = targetDoc(uri);
+      if (doc) await ctl.verify(doc, { online: true });
+    }),
+    vscode.commands.registerCommand("mdsig.manageTrustedSigners", async () => {
+      const known = await ctl.knownSigners().read();
+      const items = await Promise.all(Object.entries(known).map(async ([signer, key]) => ({ label: signer, description: await keyFingerprint(key).catch(() => "?"), signer })));
+      if (!items.length) return void vscode.window.showInformationMessage(t("No trusted signers yet."));
+      const pick = await vscode.window.showQuickPick(items, { title: t("Trusted signers (keys only)"), placeHolder: t("Choose a signer to stop trusting") });
+      if (!pick) return;
+      const yes = t("Remove");
+      if ((await vscode.window.showWarningMessage(t("Stop trusting the key of {0}? The next document from this signer will show the key as new.", pick.signer), { modal: true }, yes)) !== yes) return;
+      await ctl.knownSigners().update((d) => {
+        delete d[pick.signer];
+      });
+      for (const d of vscode.workspace.textDocuments) if (d.languageId === "markdown") void ctl.verify(d, { online: false });
     }),
   );
   return { ctl, view, extendMarkdownIt: previewPlugin(ctl) };

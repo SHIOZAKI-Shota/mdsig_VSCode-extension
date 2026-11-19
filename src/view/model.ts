@@ -31,6 +31,7 @@ export interface Card {
   rows: [string, string][];
   line: number;
   keyChanged: boolean;
+  newKey?: { signer: string; key: string; fingerprint: string };
 }
 
 export interface Step {
@@ -125,7 +126,7 @@ export function buildModel(t: T, e: Entry, fileName: string, full: boolean): Vie
 
   const k = summarize(e.result);
   const sum = summaryText(t, e.result);
-  const cards = e.result.signatures.map((s) => card(t, s, e.layout.blocks.find((b) => b.index === s.index)));
+  const cards = e.result.signatures.map((s) => card(t, s, e.layout.blocks.find((b) => b.index === s.index), s.status === "valid" && s.fields.method === "tofu" ? e.newKeys.find((k) => k.signer === s.fields.signer && k.key === s.fields.pubkey) : undefined));
   return {
     file: fileName,
     rows,
@@ -138,6 +139,9 @@ export function buildModel(t: T, e: Entry, fileName: string, full: boolean): Vie
       lines: t("{0} lines", "{0}"),
       jump: t("Go to"),
       accept: t("Accept the new key"),
+      newKey: t("Key seen for the first time"),
+      newKeyNote: t("The signature is valid, but this key is not in your trusted list. Like a new SSH host, trust it only if the fingerprint is what the signer told you."),
+      trust: t("Trust…"),
       offline: t("Checked without the network. Save the file or run Verify to check the signers' keys."),
       agreement: t("Required signatures"),
       signatures: t("Signatures"),
@@ -153,7 +157,7 @@ export function buildModel(t: T, e: Entry, fileName: string, full: boolean): Vie
   };
 }
 
-function card(t: T, s: BlockResult, span: LineRange | undefined): Card {
+function card(t: T, s: BlockResult, span: LineRange | undefined, newKey?: Card["newKey"]): Card {
   const f = s.fields;
   const rows: [string, string][] = [];
   const add = (k: string, v: string | undefined) => v && rows.push([k, v]);
@@ -161,10 +165,11 @@ function card(t: T, s: BlockResult, span: LineRange | undefined): Card {
   add(t("Signed at (claimed)"), f.ts);
   add(t("Timestamp"), s.tsa?.verified ? `${s.tsa.genTime}` : s.tsa ? t("present, not verified") : undefined);
   add(t("Key from"), s.key?.source ?? (s.pgp?.keySource ? `OpenPGP ${s.pgp.fpr ?? ""} (${s.pgp.keySource})` : undefined));
+  add(t("Passkey"), s.webauthn ? `rp_id ${s.webauthn.rpId}` : undefined);
   add(t("Expires"), f.expires);
   add(t("Covers"), s.partial ? s.partial.sections.join(", ") : undefined);
   if (s.message && s.status !== "valid") add(t("Details"), s.message);
-  return { index: s.index, tone: tone(s), mark: mark(s), status: statusText(t, s), signer: signerLabel(s), method: methodLabel(t, f.method), ...(f.role ? { role: f.role } : {}), rows, line: span?.from ?? 1, keyChanged: s.code === "key-changed" };
+  return { index: s.index, tone: tone(s), mark: mark(s), status: statusText(t, s), signer: signerLabel(s), method: methodLabel(t, f.method), ...(f.role ? { role: f.role } : {}), rows, line: span?.from ?? 1, keyChanged: s.code === "key-changed", ...(newKey ? { newKey } : {}) };
 }
 
 function steps(t: T, e: Entry): Step[] {

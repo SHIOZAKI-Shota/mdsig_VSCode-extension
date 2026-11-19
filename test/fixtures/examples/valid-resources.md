@@ -17,7 +17,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 ![Remote chart](https://example.com/chart.png)
 
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -29,6 +29,6 @@ resources: |
 alg: ed25519
 hash: sha256:96157b296679271abe9b2dda0979f7c1b2046c9027545f829c77f75574b8db67
 sig: |
-  base64:YYwb04lHlitdYKpNKHvA9HDyACJTCJiZDeojNTlyP9odQs7ORRaKyp2F0MqGOtEs835CB
-  D97rITXemODcfulBQ==
+  base64:csXmbmwKow4RLDT+YBHROm9H++AeNozQD/0jRO+rLNm7Dd509C1CICHIMmqwX0MyRvkq5
+  Ll+4E8hBHmd6Tu5Cg==
 -->

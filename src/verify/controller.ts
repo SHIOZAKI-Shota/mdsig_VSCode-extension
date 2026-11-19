@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import { publicHostFetch, verifyDocument, type TofuStore, type VerifyOptions, type VerifyResult } from "@mdsig/core";
 import { layout, type Layout } from "./ranges.ts";
+import { knownSignersStore, newKeys, type KnownSigners, type NewKey } from "./tofu.ts";
 
 export interface Host {
   isWeb: boolean;
-  tofuStore: TofuStore;
+  known: KnownSigners;
   keyDirectories(): Promise<string[]>;
   pgpKeyring?: (fpr: string) => Promise<Uint8Array | null>;
-  flushTofu?(): Promise<void>;
 }
 
 export interface Entry {
@@ -17,6 +17,7 @@ export interface Entry {
   online: boolean;
   result: VerifyResult;
   layout: Layout;
+  newKeys: NewKey[];
 }
 
 const MD = (d: vscode.TextDocument) => d.languageId === "markdown";
@@ -66,6 +67,20 @@ export class VerifyController implements vscode.Disposable {
     this.acceptOnce.add(uri.toString());
   }
 
+  async trustKey(signer: string, key: string) {
+    await this.host.known.update((d) => {
+      d[signer] = key;
+    });
+  }
+
+  keyDirectories(): Promise<string[]> {
+    return this.host.keyDirectories();
+  }
+
+  knownSigners() {
+    return this.host.known;
+  }
+
   async verify(doc: vscode.TextDocument, o: { online: boolean }): Promise<Entry | undefined> {
     const key = doc.uri.toString();
     const prev = this.running.get(key);
@@ -79,9 +94,8 @@ export class VerifyController implements vscode.Disposable {
     }
   }
 
-  private async options(doc: vscode.TextDocument, online: boolean): Promise<VerifyOptions> {
+  private async options(doc: vscode.TextDocument, online: boolean, tofu: TofuStore, accept: boolean): Promise<VerifyOptions> {
     const cfg = vscode.workspace.getConfiguration("mdsig");
-    const accept = this.acceptOnce.delete(doc.uri.toString());
     const extraTsaRoots: Uint8Array[] = [];
     for (const p of cfg.get<string[]>("tsaRoots", [])) {
       try {
@@ -93,10 +107,11 @@ export class VerifyController implements vscode.Disposable {
     return {
       offline: !online,
       fetch: publicHostFetch(globalThis.fetch.bind(globalThis)),
-      tofuStore: this.host.tofuStore,
+      tofuStore: tofu,
       acceptNewTofuKey: accept,
+      confirmNewTofuKeys: true,
       pgpKeyring: this.host.pgpKeyring,
-      ...({ extraKeyDirectories: await this.host.keyDirectories() } as object),
+      extraKeyDirectories: await this.host.keyDirectories(),
       ...(keyserver ? { keyserver } : {}),
       checkRevocation: online && cfg.get<boolean>("verify.checkRevocation", true),
       fetchResources: online && cfg.get<boolean>("verify.fetchResources", false),
@@ -108,17 +123,18 @@ export class VerifyController implements vscode.Disposable {
   private async run(doc: vscode.TextDocument, online: boolean): Promise<Entry | undefined> {
     const text = doc.getText();
     const version = doc.version;
+    const accept = this.acceptOnce.delete(doc.uri.toString());
+    const tofu = await knownSignersStore(this.host.known);
     let result: VerifyResult;
     try {
-      result = await verifyDocument(text, await this.options(doc, online));
+      result = await verifyDocument(text, await this.options(doc, online, tofu, accept));
     } catch (e) {
       result = { ok: false, signatures: [], agreement: { status: "none", required: [], missing: [], violations: [] }, warnings: [], error: String((e as Error).message ?? e) };
     }
-    await this.host.flushTofu?.();
     if (doc.isClosed) return undefined;
     const prev = this.cache.get(doc.uri.toString());
     if (!online && prev?.online && prev.text === text) return prev;
-    const entry: Entry = { uri: doc.uri.toString(), version, text, online, result, layout: layout(text) };
+    const entry: Entry = { uri: doc.uri.toString(), version, text, online, result, layout: layout(text), newKeys: newKeys(result) };
     this.cache.set(entry.uri, entry);
     this.emitter.fire(entry);
     return entry;

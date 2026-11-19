@@ -27,7 +27,7 @@ sig: |
   FNEVrD3Bb5nojDiCA==
 -->
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: dns
 signer: example.com
 selector: 2026
@@ -36,6 +36,19 @@ ts: 2026-11-16T09:46:00Z
 alg: ed25519
 hash: sha256:2ae624523a867ba6273d1711a75169e20f1521d33f6c8b1a15a3e3c9de5cdd3f
 sig: |
-  base64:hFhbb1fxloXkduNeOEdw024zOFkZJjbAOnkIpZGBFcQZNi3cr1SucpFKrsPoZT5JPZeei
-  6Z8bTshM2r/nnDjAA==
+  base64:ygELzyavp+8OIwfifrYAF0YOKqn7Aazzex38zJq25f2uKcfRXTQI1QIQ+3ShW1NH1J3Qa
+  vxh7lWwHs1P2UBPDg==
+-->
+<!-- md-signature
+v: 0.0.2
+method: tofu
+signer: bob@laptop
+pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
+role: witness
+ts: 2026-11-16T10:00:00Z
+alg: ed25519
+hash: sha256:77b9f3d9ca7686bd50a8e33ede6adc1d17163f0a6239618244037e5737006d70
+sig: |
+  base64:33RJQFbARNlvFx5YzexJJcyGj0rU6c6KR2Mfu0L16zj+KP59gtvS0uuKAsEIl9jhAuJEk
+  OTB+wwaXIbs1PAoCg==
 -->

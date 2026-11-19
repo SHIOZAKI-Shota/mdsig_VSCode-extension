@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { TofuStore } from "@mdsig/core";
+import type { KnownSigners } from "../verify/tofu.ts";
 import { mdsigConfigFile } from "./paths.ts";
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
@@ -18,37 +18,14 @@ async function writeAtomic(file: string, data: string): Promise<void> {
   await fs.rename(tmp, file);
 }
 
-export class FileTofuStore implements TofuStore {
-  private data: Record<string, string> | null = null;
-  private dirty = false;
-  private readonly file: string;
-  constructor(file = mdsigConfigFile("known_signers.json")) {
-    this.file = file;
-  }
-
-  private async load(): Promise<Record<string, string>> {
-    if (!this.dirty) this.data = await readJson<Record<string, string>>(this.file, {});
-    return this.data!;
-  }
-
-  async get(signer: string): Promise<string | undefined> {
-    const d = await this.load();
-    return Object.hasOwn(d, signer) ? d[signer] : undefined;
-  }
-
-  async set(signer: string, pubkey: string): Promise<void> {
-    const d = await this.load();
-    d[signer] = pubkey;
-    this.dirty = true;
-  }
-
-  async flush(): Promise<void> {
-    if (!this.dirty || !this.data) return;
-    const current = await readJson<Record<string, string>>(this.file, {});
-    await writeAtomic(this.file, JSON.stringify({ ...current, ...this.data }, null, 2) + "\n");
-    this.dirty = false;
-  }
-}
+export const fileKnownSigners = (file = mdsigConfigFile("known_signers.json")): KnownSigners => ({
+  read: () => readJson<Record<string, string>>(file, {}),
+  async update(change) {
+    const current = await readJson<Record<string, string>>(file, {});
+    change(current);
+    await writeAtomic(file, JSON.stringify(current, null, 2) + "\n");
+  },
+});
 
 export async function storedKeyDirectories(): Promise<string[]> {
   const list = await readJson<unknown>(mdsigConfigFile("key_directories.json"), []);

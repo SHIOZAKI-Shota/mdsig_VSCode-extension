@@ -53,14 +53,13 @@ function signForm(i: Init) {
   methods.append(methodList);
   for (const m of METHODS) {
     const input = el("input", { type: "radio", name: "method", value: m });
-    if (m === "directory") input.disabled = true;
     if (m === method) input.checked = true;
     input.addEventListener("change", () => {
       method = m;
       post({ type: "method", method: m });
       update();
     });
-    methodList.append(el("label", { class: `method${m === "directory" ? " disabled" : ""}` }, input, el("span", { class: "m-title" }, s[`m.${m}`]!), el("span", { class: "m-desc" }, s[`m.${m}.d`]!)));
+    methodList.append(el("label", { class: "method" }, input, el("span", { class: "m-title" }, s[`m.${m}`]!), el("span", { class: "m-desc" }, s[`m.${m}.d`]!)));
   }
   form.append(methods);
 
@@ -205,11 +204,16 @@ function published(s: S, info: { ssh: string; fingerprint: string; txt: string }
   checkDns.addEventListener("click", () => post({ type: "checkDns", domain: domain.value }));
   tabDns.append(el("h2", {}, s.dns!), el("p", {}, s.dnsSteps!), el("pre", { class: "key" }, `_mdsig.<domain>  TXT  "${info.txt}"`), el("div", { class: "row" }, copyTxt), field(s.domain!, domain), checkDns);
 
+  const tabDir = el("section");
+  const registerDir = el("button", { type: "button", class: "primary" }, s.registerDirectory!);
+  registerDir.addEventListener("click", () => post({ type: "registerDirectory" }));
+  tabDir.append(el("h2", {}, s.directory!), el("p", {}, s.directorySteps!), registerDir);
+
   const exp = el("button", { type: "button", class: "link" }, s.export!);
   exp.addEventListener("click", () => post({ type: "export" }));
   const done = el("button", { type: "button", class: "primary big" }, s.done!);
   done.addEventListener("click", () => post({ type: "sign" }));
-  box.append(el("h1", {}, `✓ ${s.created}`), el("p", { class: "file" }, info.fingerprint), el("h2", {}, s.publish!), el("p", {}, s.publishIntro!), el("div", { class: "publish" }, tabGh, tabDns), status, el("p", {}, exp), done);
+  box.append(el("h1", {}, `✓ ${s.created}`), el("p", { class: "file" }, info.fingerprint), el("h2", {}, s.publish!), el("p", {}, s.publishIntro!), el("div", { class: "publish" }, tabGh, tabDns, tabDir), status, el("p", {}, exp), done);
   root.append(box);
   (window as unknown as { setStatus: (m: string, ok: boolean) => void }).setStatus = (m, ok) => {
     status.textContent = m;

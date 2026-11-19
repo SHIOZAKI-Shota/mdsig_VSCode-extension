@@ -2,10 +2,27 @@ import * as vscode from "vscode";
 import type { BlockResult } from "@mdsig/core";
 import type { Entry, VerifyController } from "../verify/controller.ts";
 import { lensText, mark, methodLabel, signerLabel, statusText, summarize, summaryText, tone, type Tone } from "../verify/present.ts";
+import { countByKind, scanBody, type FindingKind } from "../verify/findings.ts";
+import type { NewKey } from "../verify/tofu.ts";
 
 const t = vscode.l10n.t;
 
 const range = (from: number, to: number) => new vscode.Range(from - 1, 0, to - 1, Number.MAX_SAFE_INTEGER);
+
+export const FINDING_LABEL: Record<FindingKind, string> = {
+  comment: "Hidden comment (part of what is signed)",
+  removed: "Element a preview may remove",
+  html: "Raw HTML (may render differently)",
+  chars: "Invisible or direction-changing character",
+  linkdef: "Link reference definition (not shown)",
+  link: "Link text differs from its destination",
+  image: "External image (can change after signing)",
+};
+const WARN_KINDS = new Set<FindingKind>(["comment", "removed", "chars", "link"]);
+
+export function newKeyFor(e: Entry, s: BlockResult): NewKey | undefined {
+  return s.fields.method === "tofu" ? e.newKeys.find((k) => k.signer === s.fields.signer && k.key === s.fields.pubkey) : undefined;
+}
 
 export function registerDiagnostics(ctl: VerifyController): vscode.Disposable {
   const coll = vscode.languages.createDiagnosticCollection("mdsig");
@@ -42,6 +59,14 @@ export function registerDiagnostics(ctl: VerifyController): vscode.Disposable {
       d.source = "md-signature";
       out.push(d);
     }
+    for (const [kind, list] of countByKind(scanBody(e.text))) {
+      for (const f of list) {
+        const d = new vscode.Diagnostic(range(f.line, f.line), `${t(FINDING_LABEL[kind])}: ${f.text}`, WARN_KINDS.has(kind) ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Information);
+        d.source = "md-signature";
+        d.code = `hidden-${kind}`;
+        out.push(d);
+      }
+    }
     coll.set(vscode.Uri.parse(e.uri), out);
   };
   const sub = ctl.onDidVerify(update);
@@ -63,6 +88,8 @@ export function registerCodeLens(ctl: VerifyController): vscode.Disposable {
         const r = range(span.from, span.from);
         lenses.push(new vscode.CodeLens(r, { title: lensText(t, s), command: "mdsig.openView", arguments: [doc.uri, s.index], tooltip: t("Open the signature view") }));
         if (s.code === "key-changed") lenses.push(new vscode.CodeLens(r, { title: t("Accept the new key"), command: "mdsig.acceptNewKey", arguments: [doc.uri] }));
+        const nk = s.status === "valid" ? newKeyFor(e, s) : undefined;
+        if (nk) lenses.push(new vscode.CodeLens(r, { title: t("Key seen for the first time · Trust…"), command: "mdsig.trustKey", arguments: [doc.uri, nk.signer, nk.key, nk.fingerprint], tooltip: nk.fingerprint }));
       }
       if (e.layout.tail) lenses.push(new vscode.CodeLens(range(e.layout.tail.from, e.layout.tail.from), { title: `✗ ${t("Not covered by any signature")}`, command: "mdsig.openView", arguments: [doc.uri] }));
       return lenses;
@@ -79,12 +106,12 @@ export function registerHover(ctl: VerifyController): vscode.Disposable {
       const span = e?.layout.blocks.find((b) => pos.line + 1 >= b.from && pos.line + 1 <= b.to);
       const s = span && e!.result.signatures.find((x) => x.index === span.index);
       if (!s) return;
-      return new vscode.Hover(hoverMarkdown(s), range(span!.from, span!.to));
+      return new vscode.Hover(hoverMarkdown(s, newKeyFor(e!, s)), range(span!.from, span!.to));
     },
   });
 }
 
-function hoverMarkdown(s: BlockResult): vscode.MarkdownString {
+function hoverMarkdown(s: BlockResult, nk?: NewKey): vscode.MarkdownString {
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = false;
   md.supportHtml = false;
@@ -102,6 +129,8 @@ function hoverMarkdown(s: BlockResult): vscode.MarkdownString {
     [t("Expires"), f.expires],
     [t("Covers"), s.partial ? s.partial.sections.join(", ") : undefined],
     [t("Withdrawal check"), s.revocation ? s.revocation.status : undefined],
+    [t("Passkey"), s.webauthn ? `rp_id ${s.webauthn.rpId}` : undefined],
+    [t("Key seen for the first time"), nk ? `${nk.fingerprint} (${t("not trusted yet")})` : undefined],
   ];
   for (const [k, v] of rows) if (v) md.appendMarkdown(`${esc(k)}: ${esc(v)}  \n`);
   for (const r of s.resources ?? []) md.appendMarkdown(`${r.status === "ok" ? "✓" : r.status === "not-checked" ? "−" : "✗"} ${esc(r.ref)}  \n`);

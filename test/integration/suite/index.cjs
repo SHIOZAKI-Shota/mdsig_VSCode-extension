@@ -1,4 +1,5 @@
 const vscode = require("vscode");
+const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
@@ -28,6 +29,40 @@ const tests = {
     const l = await until(async () => (await lenses(doc)).find((x) => x.command?.title.includes("#1")), "lens");
     assert.match(l.command.title, /^✓ #1/);
     assert.equal(diags(doc).length, 0);
+  },
+  async "a key seen for the first time is offered for trust, not stored"() {
+    const doc = await open("valid-single.md");
+    const l = await until(async () => (await lenses(doc)).find((x) => x.command?.command === "mdsig.trustKey"), "trust lens");
+    assert.equal(l.command.arguments[1], "bob@laptop");
+    assert.match(l.command.arguments[3], /^SHA256:/);
+    assert.ok(!fs.existsSync(path.join(process.env.MDSIG_TEST_CONFIG_DIR, "mdsig", "known_signers.json")));
+  },
+  async "a trusted key gets no trust lens, and a different one is reported"() {
+    const known = path.join(process.env.MDSIG_TEST_CONFIG_DIR, "mdsig", "known_signers.json");
+    const doc = await open("valid-single.md");
+    const l = await until(async () => (await lenses(doc)).find((x) => x.command?.command === "mdsig.trustKey"), "trust lens");
+    fs.mkdirSync(path.dirname(known), { recursive: true });
+    try {
+      fs.writeFileSync(known, JSON.stringify({ "bob@laptop": l.command.arguments[2] }));
+      await vscode.commands.executeCommand("mdsig.verify", doc.uri);
+      await until(async () => !(await lenses(doc)).some((x) => x.command?.command === "mdsig.trustKey"), "trust lens gone");
+      assert.equal(diags(doc).length, 0);
+      fs.writeFileSync(known, JSON.stringify({ "bob@laptop": "ed25519:AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" }));
+      await vscode.commands.executeCommand("mdsig.verify", doc.uri);
+      await until(() => diags(doc).find((x) => x.code === "key-changed"), "key-changed diagnostic");
+    } finally {
+      fs.rmSync(known, { force: true });
+    }
+    await vscode.commands.executeCommand("mdsig.verify", doc.uri);
+    await until(async () => (await lenses(doc)).some((x) => x.command?.command === "mdsig.trustKey"), "trust lens back");
+    assert.ok(!fs.existsSync(known));
+  },
+  async "hidden content in the body is reported"() {
+    const hidden = await vscode.workspace.openTextDocument({ language: "markdown", content: "# T\n\nPay 100.\n\n<!-- and 1,000,000 -->\n" });
+    await vscode.window.showTextDocument(hidden);
+    const d = await until(() => diags(hidden).find((x) => x.code === "hidden-comment"), "hidden comment diagnostic");
+    assert.equal(d.severity, vscode.DiagnosticSeverity.Warning);
+    assert.equal(d.range.start.line, 4);
   },
   async "a tampered document reports the block"() {
     const doc = await open("tampered.md");
@@ -78,13 +113,17 @@ const tests = {
     assert.match(h2, /mdsig-hidden/);
     assert.match(h2, /secret clause/);
     assert.match(h2, /U\+202E/);
+    const scoped = await open("valid-scoped-edited.md");
+    const h3 = await vscode.commands.executeCommand("markdown.api.render", scoped);
+    assert.match(h3, /mdsig-section[^>]*>§ terms/);
+    assert.doesNotMatch(h3, /mdsig-hidden-label">[^<]*<\/span> mdsig:section/);
   },
   async "commands run"() {
     await open("valid-scoped-edited.md");
     await vscode.commands.executeCommand("mdsig.openView");
     await vscode.commands.executeCommand("mdsig.verify");
     const all = await vscode.commands.getCommands(true);
-    for (const c of ["mdsig.sign", "mdsig.timestamp", "mdsig.setupKey", "mdsig.manageKeys"]) assert.ok(all.includes(c), c);
+    for (const c of ["mdsig.sign", "mdsig.timestamp", "mdsig.setupKey", "mdsig.manageKeys", "mdsig.trustKey", "mdsig.manageTrustedSigners", "mdsig.registerKeyDirectory"]) assert.ok(all.includes(c), c);
   },
 };
 

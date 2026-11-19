@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { VerifyController } from "../verify/controller.ts";
 import { lensText, mark, statusText, summarize, summaryText, summaryTone, tone } from "../verify/present.ts";
+import { isSectionMarker } from "../verify/findings.ts";
 
 const t = vscode.l10n.t;
 
@@ -41,9 +42,17 @@ export function previewPlugin(ctl: VerifyController) {
         const s = span && e.result.signatures.find((x) => x.index === span.index);
         if (s) return `<div class="mdsig-card mdsig-${tone(s)}" title="${esc(statusText(t, s))}">${esc(lensText(t, s))}</div>\n`;
       }
-      if (!showHidden() || !COMMENT.test(html)) return null;
+      if (!COMMENT.test(html)) return null;
       COMMENT.lastIndex = 0;
-      return html.replace(COMMENT, (_m, body: string) => `<span class="mdsig-hidden" title="${esc(t("This comment is not shown when rendered, but it is part of what is signed"))}"><span class="mdsig-hidden-label">${esc(t("Hidden comment"))}</span> ${markChars(esc(body.trim()))}</span>`);
+      const out = html.replace(COMMENT, (whole, body: string) => {
+        if (isSectionMarker(body)) {
+          const id = /^mdsig:section\s+(\S+)$/.exec(body.trim())?.[1];
+          return id ? `<span class="mdsig-section" title="${esc(t("Section {0}", id))}">§ ${esc(id)}</span>` : "";
+        }
+        if (!showHidden()) return whole;
+        return `<span class="mdsig-hidden" title="${esc(t("This comment is not shown when rendered, but it is part of what is signed"))}"><span class="mdsig-hidden-label">${esc(t("Hidden comment"))}</span> ${markChars(esc(body.trim()))}</span>`;
+      });
+      return out === html ? null : out;
     };
 
     const origBlock = md.renderer.rules.html_block;

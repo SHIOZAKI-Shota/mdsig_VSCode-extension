@@ -122,6 +122,15 @@ function sigList(m: ViewModel): HTMLElement {
       for (const [k, v] of c.rows) dl.append(el("dt", "", k), el("dd", "", v));
       li.append(dl);
     }
+    if (c.newKey) {
+      const nk = el("div", "newkey");
+      const info = el("div", "nk-info");
+      info.append(el("b", "", m.strings.newKey!), el("code", "", c.newKey.fingerprint));
+      if (mode === "view") info.append(el("span", "nk-note", m.strings.newKeyNote!));
+      const k = c.newKey;
+      nk.append(info, button(m.strings.trust!, "secondary", () => post({ type: "trust", signer: k.signer, key: k.key, fingerprint: k.fingerprint })));
+      li.append(nk);
+    }
     const act = el("div", "sig-actions");
     act.append(button(m.strings.jump!, "link", () => post({ type: "jump", line: c.line })));
     if (c.keyChanged) act.append(button(m.strings.accept!, "link", () => post({ type: "accept" })));
