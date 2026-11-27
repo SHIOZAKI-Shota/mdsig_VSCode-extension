@@ -1,17 +1,20 @@
 # dave@example.org revoked signatures
 
-revoked: sha256:f216753cb1d76f28dd1a118da2b4e4684d39eff475595458c8e260a9d2bfd005
+```mdsig-list
+type: revocation
+revoked: sha256:eac68a0a499db6664751edd913d926c74b8f173c8b799d4038f45b660b41674b
+```
 
 <!-- md-signature
-v: 0.0.4
+v: 0.1
 method: pgp
 signer: dave@example.org
 fpr: DC169A0E529FF31AB87FC0B8EF37BA0F059AD959
 ts: 2026-11-25T00:00:00Z
 alg: openpgp
-hash: sha256:ecaabc28b0b0239973845ca5779821dcb6380843ab06b8395d8849262da420b5
+hash: sha256:a0c84d13996762a4947a70a5ace4f3ef71f626c00cb5f3f343bb8a5dbcfa69fb
 sig: |
-  base64:wnUEABYIAB0FAmr6xhAWIQTcFpoOUp/zGrh/wLjvN7oPBZrZWQAKCRDvN7oPBZrZWTuJA
-  QDe3EPpZG/EEoNd2RwQ9zuOHYiOdxvpIV3u2ggATERi1wD/ejnlYDsT8nkF2FZX+DbP16niydqK7
-  7QspukyrTxSnAY=
+  base64:wnUEABYIAB0FAmr6xhAWIQTcFpoOUp/zGrh/wLjvN7oPBZrZWQAKCRDvN7oPBZrZWZFSA
+  P9Xv5LzRPF+OU9tSnhpvvRgXUdKkvoMHSexvpRlMOJd+gEA5bhEFadJ+fHBRs7vTyLIQW7GDNN4s
+  t75erCj3c1nBAc=
 -->

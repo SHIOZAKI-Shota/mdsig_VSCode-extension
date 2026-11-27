@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.4
+v: 0.1
 method: directory
 signer: grace@multi.example
 role: author
@@ -21,6 +21,6 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:WdXU5ApjWCq5J3NbXhD63B/+zfk6axiRnPyW0N2AyeMn0BVOlE15xes/GU6YFMJlTy9cd
-  RQNfEVhWiTGOk96Ag==
+  base64:WBbWH1spA8NGv2IhvJQAtN69qT5QBXukq1z+jTw6Eeon+bYe+gWQYu4xKovW9AtjQxanO
+  1tyjrNKZEEddZb9CQ==
 -->

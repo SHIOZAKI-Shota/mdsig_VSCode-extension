@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as os from "node:os";
 import {
+  canonicalSignerInput,
   DEFAULT_KEY_DIRECTORIES,
   DEFAULT_RESOLVERS,
   DEFAULT_TSA_URL,
@@ -22,6 +23,8 @@ import {
 import { webviewHtml } from "../view/panels.ts";
 import type { VerifyController } from "../verify/controller.ts";
 import { KeyStore, listKeyChoices, signerFor, type KeyChoice } from "../keys/store.ts";
+import { checkInput, signerId } from "./input.ts";
+import { coreText } from "../verify/present.ts";
 
 const t = vscode.l10n.t;
 const LAST = "mdsig.lastSigner";
@@ -32,6 +35,7 @@ interface SignRequest {
   selector?: string;
   key: string;
   role?: string;
+  displayName?: string;
   reason?: string;
   timestamp: boolean;
   tsaUrl?: string;
@@ -43,7 +47,9 @@ interface SignRequest {
 }
 
 const netFetch = () => publicHostFetch(globalThis.fetch.bind(globalThis));
-const signerId = (r: SignRequest) => (r.method === "directory" ? r.signer.trim().toLowerCase() : r.signer.trim());
+const uiLang = () => (vscode.env.language.startsWith("ja") ? "ja" : "en");
+
+
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 const fileName = (uri: vscode.Uri) => uri.path.split("/").pop() ?? uri.toString();
@@ -90,7 +96,27 @@ function formStrings(): Record<string, string> {
     tsaUrl: t("Time-stamping authority URL"),
     expires: t("Valid until (optional)"),
     scope: t("Sign only these sections"),
-    require: t("Signatures still needed after yours (one per line, e.g. dns:example.com approver)"),
+    require: t("Signatures still needed after yours"),
+    requireHint: t("One requirement per line, for example dns:example.com role=approver. Group lines with step or step any=2, and set the order with order mode=guide or order mode=strict."),
+    requireText: t("Edit as text"),
+    order: t("Order"),
+    "o.pending": t("Signatures before their turn wait (default)"),
+    "o.guide": t("Signatures before their turn count but are reported"),
+    "o.strict": t("A signature before its turn fails the document"),
+    step: t("Step {0}"),
+    any: t("How many are needed (blank = all)"),
+    addStep: t("Add a step"),
+    addLine: t("Add a signer"),
+    remove: t("Remove"),
+    lineSigner: t("Signer or pattern (e.g. example.com, *.example.com, *)"),
+    lineRole: t("Role"),
+    lineUv: t("Require user verification (passkey)"),
+    lineMember: t("Member of (https URL or dns:domain)"),
+    linePubkey: t("Public key (tofu: ed25519:…)"),
+    cannotBuild: t("This value cannot be shown in the form. Fix it as text first."),
+    displayName: t("Display name (optional)"),
+    displayNameHint: t("Shown next to your verified identity and marked as self-declared."),
+    openFence: t("The document ends inside an open code block. Close it before signing, otherwise every signature would be shown as code."),
     embedKey: t("Include the public key in the signature, so it can still be checked if the key is removed"),
     selector: t("DNS selector (optional)"),
     covers: t("Your signature will cover the whole document as it is now: {0} lines of text and {1} earlier signature(s)."),
@@ -128,6 +154,7 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
       signatures: parsed.chain.length,
       tail: !!e?.layout.tail || (parsed.chain.length === 0 && parsed.strayMarker),
       tsaUrl: vscode.workspace.getConfiguration("mdsig").get<string>("tsaUrl", "http://ts.ssl.com"),
+      openFence: parsed.unclosedFence,
     });
     await pushKeys("git-hosting");
   };
@@ -147,6 +174,10 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
     const signer: Signer | PgpSigner = await signerFor(choice, store, askPassphrase);
     if (r.method === "git-hosting" && signer.alg === "ed25519") await warnIfUnpublished(r, signer);
     if (r.method === "directory" && signer.alg === "ed25519" && !(await warnIfNotInDirectory(r, signer))) return;
+    const check = checkInput(r, uiLang());
+    if (check.signer) throw new Error(t("The signer is not valid: {0}", check.signer));
+    if (check.displayName) throw new Error(t("The display name is not valid: {0}", check.displayName));
+    if (check.require?.blocking) throw new Error(check.require.errors.join("\n"));
     const text = doc.getText();
     const res = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t("Signing…") }, () =>
       signDocument(text, {
@@ -155,6 +186,7 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
         signerId: signerId(r),
         ...(r.selector ? { selector: r.selector.trim() } : {}),
         ...(r.role ? { role: r.role } : {}),
+        ...(r.displayName?.trim() ? { displayName: r.displayName.trim() } : {}),
         ...(r.reason ? { reason: r.reason.trim() } : {}),
         ...(r.expires ? { expires: r.expires } : {}),
         ...(r.scope.length ? { scope: r.scope } : {}),
@@ -174,7 +206,7 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
     panel?.dispose();
     await ctl.verify(doc, { online: true });
     const save = t("Save");
-    const pick = await vscode.window.showInformationMessage(t("Signed as {0}. Save the file to keep the signature.", signerId(r)), save);
+    const pick = await vscode.window.showInformationMessage(res.tsaBlock ? t("Signed as {0}, with a timestamp block after the signature. Save the file to keep the signature.", signerId(r)) : t("Signed as {0}. Save the file to keep the signature.", signerId(r)), save);
     if (pick === save) await doc.save();
     void vscode.commands.executeCommand("mdsig.openView", doc.uri);
   };
@@ -182,12 +214,12 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
   const warnIfUnpublished = async (r: SignRequest, signer: Signer) => {
     try {
       const fp = await sshFingerprint(signer.publicKey);
-      const found = await DEFAULT_RESOLVERS["git-hosting"]!({ signer: r.signer.trim(), method: "git-hosting", alg: "ed25519", key_fp: fp }, { fetch: netFetch() });
+      const found = await DEFAULT_RESOLVERS["git-hosting"]!({ signer: signerId(r), method: "git-hosting", alg: "ed25519", key_fp: fp }, { fetch: netFetch() });
       if (found.keys.length) return;
     } catch {
     }
     const go = t("Sign anyway");
-    const pick = await vscode.window.showWarningMessage(t("This key is not published on {0} yet, so readers cannot check the signature until you add it to the account.", r.signer.trim()), { modal: true }, go);
+    const pick = await vscode.window.showWarningMessage(t("This key is not published on {0} yet, so readers cannot check the signature until you add it to the account.", signerId(r)), { modal: true }, go);
     if (pick !== go) throw new Error(t("Cancelled"));
   };
 
@@ -226,15 +258,16 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
     panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.png");
     panel.webview.html = webviewHtml(panel.webview, context.extensionUri, "sign", "form.js", false);
     panel.onDidDispose(() => (panel = undefined));
-    panel.webview.onDidReceiveMessage(async (m: { type: string; method?: string; request?: SignRequest }) => {
+    panel.webview.onDidReceiveMessage(async (m: { type: string; method?: string; request?: SignRequest; input?: { seq: number; method: string; signer: string; displayName?: string; require?: string } }) => {
       if (m.type === "ready") await pushInit();
+      if (m.type === "check" && m.input) void panel?.webview.postMessage({ type: "checked-input", seq: m.input.seq, result: checkInput(m.input, uiLang()) });
       if (m.type === "method" && m.method) await pushKeys(m.method);
       if (m.type === "setup") openSetup();
       if (m.type === "sign" && m.request) {
         try {
           await sign(m.request);
         } catch (e) {
-          void panel?.webview.postMessage({ type: "error", message: (e as Error).message });
+          void panel?.webview.postMessage({ type: "error", message: coreText((e as Error).message) });
         }
       }
     });
@@ -257,7 +290,7 @@ export function registerSigning(context: vscode.ExtensionContext, ctl: VerifyCon
         await vscode.workspace.applyEdit(edit);
         await ctl.verify(doc, { online: true });
       } catch (e) {
-        void vscode.window.showErrorMessage((e as Error).message);
+        void vscode.window.showErrorMessage(coreText((e as Error).message));
       }
     }),
     { dispose: () => panel?.dispose() },
@@ -328,7 +361,7 @@ export function registerKeySetup(context: vscode.ExtensionContext, store: KeySto
         }
         if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse("https://github.com/settings/ssh/new"));
         if (m.type === "checkGithub" && current && m.user) {
-          const signer = `github.com/${m.user.trim().replace(/^@/, "")}`;
+          const signer = canonicalSignerInput("git-hosting", `github.com/${m.user.trim().replace(/^@/, "")}`);
           const fp = await sshFingerprint(current.publicKey);
           let ok = false;
           try {
@@ -352,7 +385,7 @@ export function registerKeySetup(context: vscode.ExtensionContext, store: KeySto
           void vscode.commands.executeCommand("mdsig.sign");
         }
       } catch (e) {
-        post({ type: "error", message: (e as Error).message });
+        post({ type: "error", message: coreText((e as Error).message) });
       }
     });
   };
@@ -440,7 +473,7 @@ export function registerKeyDirectory(ctl: VerifyController, store: KeyStore): vs
       }
       await vscode.window.showInformationMessage(t("Registration sent. Open the link in the email sent to {0}; the key is published on {1} after that.", email, dir));
     } catch (e) {
-      const msg = e instanceof TypeError ? t("The server could not be reached. Check the network connection, or try again later.") : (e as Error).message || String(e);
+      const msg = e instanceof TypeError ? t("The server could not be reached. Check the network connection, or try again later.") : coreText((e as Error).message || String(e));
       void vscode.window.showErrorMessage(dir ? t("Could not register the key with {0}: {1}", dir, msg) : msg);
     }
   });

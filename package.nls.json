@@ -10,7 +10,7 @@
   "cmd.setupKey": "Set Up a Signing Key",
   "cmd.manageKeys": "Manage Signing Keys",
   "view.panel": "Signatures",
-  "cfg.network": "When verification may fetch keys, revocation lists, and resources over the network.",
+  "cfg.network": "When verification may fetch keys, revocation lists, member lists, and resources over the network.",
   "cfg.network.trusted": "Only in trusted workspaces (documents opened in Restricted Mode are checked offline).",
   "cfg.network.always": "Always.",
   "cfg.network.never": "Never; signatures are checked offline only.",

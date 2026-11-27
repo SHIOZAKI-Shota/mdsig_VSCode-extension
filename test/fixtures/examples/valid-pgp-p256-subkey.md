@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.4
+v: 0.1
 method: pgp
 signer: grace@example.org
 fpr: 1A819392C4BF970EB64479F92B689457188F0F3A
@@ -22,7 +22,7 @@ ts: 2026-11-16T09:00:00Z
 alg: openpgp
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:wnUEABMIAB0FAmr6xhAWIQQagZOSxL+XDrZEefkraJRXGI8POgAKCRAraJRXGI8POgZnA
-  QCWa6WSPydalpu9IUU8ab4vhTGu8acICM1erAiIT3FoPwD+MFR3xBZLWioVwei8cEczfIHPhGLtx
-  JBKe/zZf+MwsVU=
+  base64:wnQEABMIAB0FAmr6xhAWIQQagZOSxL+XDrZEefkraJRXGI8POgAKCRAraJRXGI8POr1DA
+  PiPb/kPCQ0y/o2HSjfqJ46rJOJqS839qGUMynSFETq9AQC3QQD612xNofoREdc09ApQi7f6tmpIZ
+  UbA8Jdk8LDv2Q==
 -->

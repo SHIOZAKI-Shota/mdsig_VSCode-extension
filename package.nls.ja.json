@@ -10,7 +10,7 @@
   "cmd.setupKey": "署名用の鍵を準備",
   "cmd.manageKeys": "署名用の鍵を管理",
   "view.panel": "署名",
-  "cfg.network": "検証時に、公開鍵・撤回リスト・リソースをネットワークから取得する条件。",
+  "cfg.network": "検証時に、公開鍵・撤回リスト・名簿・リソースをネットワークから取得する条件。",
   "cfg.network.trusted": "信頼したワークスペースのみ（制限モードで開いた文書はオフラインで検査）。",
   "cfg.network.always": "常に取得する。",
   "cfg.network.never": "取得しない（オフラインでのみ検査）。",

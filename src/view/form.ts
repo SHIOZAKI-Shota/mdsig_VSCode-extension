@@ -1,3 +1,6 @@
+import { REQUIRE_METHODS, emptyDraft, emptyLine, serializeDraft, type Draft, type DraftLine } from "./requireDraft.ts";
+import type { InputCheck } from "../sign/input.ts";
+
 declare function acquireVsCodeApi(): { postMessage(m: unknown): void };
 
 const vscode = acquireVsCodeApi();
@@ -36,6 +39,7 @@ interface Init {
   signatures: number;
   tail: boolean;
   tsaUrl: string;
+  openFence: boolean;
 }
 
 let init: Init | null = null;
@@ -76,6 +80,9 @@ function signForm(i: Init) {
   const role = el("select");
   for (const r of ["", "author", "reviewer", "approver", "witness"]) role.append(el("option", { value: r }, s[`r.${r || "none"}`]!));
   const reason = el("textarea", { rows: "2" });
+  const displayName = el("input", { type: "text", autocomplete: "off", spellcheck: "false", maxlength: "64" });
+  const signerError = el("p", { class: "field-error", role: "alert" });
+  const nameError = el("p", { class: "field-error", role: "alert" });
 
   const more = el("details", { class: "more" }, el("summary", {}, s.more!));
   const ts = el("input", { type: "checkbox" });
@@ -84,21 +91,31 @@ function signForm(i: Init) {
   const expires = el("input", { type: "date" });
   const scopeBox = el("div", { class: "scope" });
   for (const id of i.sections) scopeBox.append(el("label", { class: "check" }, el("input", { type: "checkbox", value: id }), ` ${id}`));
-  const require = el("textarea", { rows: "3", spellcheck: "false", placeholder: "dns:example.com approver" });
+  const require = el("textarea", { rows: "4", spellcheck: "false", placeholder: "dns:example.com role=approver" });
+  const builder = requireBuilder(s, (text) => {
+    require.value = text;
+    scheduleCheck();
+  });
+  const requireOut = el("div", { class: "require-out" });
   const embed = el("input", { type: "checkbox" });
   const embedField = el("label", { class: "check" }, embed, ` ${s.embedKey}`);
   more.append(el("label", { class: "check" }, ts, ` ${s.timestamp}`), field(s.tsaUrl!, tsa), field(s.expires!, expires));
   if (i.sections.length) more.append(el("div", { class: "field" }, el("span", { class: "label" }, s.scope!), scopeBox));
-  more.append(field(s.require!, require), embedField, selectorField);
+  const requireBox = el("div", { class: "field" }, el("span", { class: "label" }, s.require!), el("p", { class: "hint" }, s.requireHint!), builder.root, field(s.requireText!, require), requireOut);
+  more.append(requireBox, embedField, selectorField);
 
   const covers = el("p", { class: "covers" });
   const tail = el("div", { class: "warn" });
   const force = el("input", { type: "checkbox" });
   if (i.tail) tail.append(el("p", {}, s.tail!), el("label", { class: "check" }, force, ` ${s.force}`));
+  if (i.openFence) tail.append(el("p", {}, s.openFence!));
   const error = el("p", { class: "error", role: "alert" });
   const submit = el("button", { type: "submit", class: "primary big" }, s.submit!);
 
-  form.append(signerField, keyField, noKey, field(s.role!, role), field(s.reason!, reason), more, covers, tail, error, submit);
+  signerField.append(signerError);
+  const nameField = field(s.displayName!, displayName, s.displayNameHint);
+  nameField.append(nameError);
+  form.append(signerField, keyField, noKey, field(s.role!, role), nameField, field(s.reason!, reason), more, covers, tail, error, submit);
   root.append(form);
 
   function fillKeys() {
@@ -117,6 +134,7 @@ function signForm(i: Init) {
   function update() {
     signer.placeholder = s[`p.${method}`]!;
     signer.value = i.last[method] ?? "";
+    scheduleCheck();
     selectorField.hidden = method !== "dns";
     embedField.hidden = !(method === "dns" || method === "git-hosting" || method === "directory");
     embed.checked = method === "directory";
@@ -128,6 +146,35 @@ function signForm(i: Init) {
     const scoped = [...scopeBox.querySelectorAll<HTMLInputElement>("input:checked")].length > 0;
     covers.textContent = scoped ? s.coversScope! : s.covers!.replace("{0}", String(i.lines)).replace("{1}", String(i.signatures));
   });
+  let seq = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let blocked = false;
+  function scheduleCheck() {
+    clearTimeout(timer);
+    timer = setTimeout(() => post({ type: "check", input: { seq: ++seq, method, signer: signer.value, displayName: displayName.value, require: require.value } }), 250);
+  }
+  signer.addEventListener("input", scheduleCheck);
+  displayName.addEventListener("input", scheduleCheck);
+  require.addEventListener("input", () => {
+    scheduleCheck();
+    builder.pendingFromText = true;
+  });
+  (window as unknown as { applyCheck: (n: number, c: InputCheck) => void }).applyCheck = (n, c) => {
+    if (n !== seq) return;
+    signerError.textContent = c.signer ?? "";
+    nameError.textContent = c.displayName ?? "";
+    requireOut.replaceChildren();
+    if (c.require?.explanation) requireOut.append(el("pre", { class: "explain" }, c.require.explanation));
+    for (const p of c.require?.errors ?? []) requireOut.append(el("p", { class: "field-error" }, p));
+    for (const p of c.require?.warnings ?? []) requireOut.append(el("p", { class: "field-warn" }, p));
+    if (builder.pendingFromText) {
+      builder.pendingFromText = false;
+      if (!require.value.trim()) builder.set(emptyDraft());
+      else if (c.require?.draft) builder.set(c.require.draft);
+      else builder.unusable();
+    }
+    blocked = !!(c.signer || c.displayName || c.require?.blocking);
+  };
   (window as unknown as { fillKeys: () => void }).fillKeys = fillKeys;
   update();
 
@@ -136,6 +183,7 @@ function signForm(i: Init) {
     error.textContent = "";
     if (!signer.value.trim()) return void (error.textContent = s.needSigner!);
     if (!keySelect.value) return void (error.textContent = s.needKey!);
+    if (blocked || i.openFence) return void (error.textContent = signerError.textContent || nameError.textContent || requireOut.querySelector(".field-error")?.textContent || s.openFence!);
     submit.disabled = true;
     submit.textContent = s.signing!;
     post({
@@ -146,6 +194,7 @@ function signForm(i: Init) {
         selector: selector.value || undefined,
         key: keySelect.value,
         role: role.value || undefined,
+        displayName: displayName.value || undefined,
         reason: reason.value || undefined,
         timestamp: ts.checked,
         tsaUrl: tsa.value,
@@ -162,6 +211,98 @@ function signForm(i: Init) {
     submit.textContent = s.submit!;
   };
   (window as unknown as { showError: (m: string) => void }).showError = (m: string) => (error.textContent = m);
+}
+
+function requireBuilder(s: S, onChange: (text: string) => void) {
+  let draft: Draft = emptyDraft();
+  const root = el("div", { class: "builder" });
+  const api = {
+    root,
+    pendingFromText: false,
+    set(d: Draft) {
+      draft = d.steps.length ? d : emptyDraft();
+      render();
+    },
+    unusable() {
+      root.replaceChildren(el("p", { class: "hint" }, s.cannotBuild!));
+    },
+  };
+  const emit = () => onChange(serializeDraft(draft));
+  const select = (values: readonly string[], value: string, label: (v: string) => string, set: (v: string) => void) => {
+    const sel = el("select");
+    for (const v of values) sel.append(el("option", { value: v }, label(v)));
+    sel.value = value;
+    sel.addEventListener("change", () => {
+      set(sel.value);
+      emit();
+      render();
+    });
+    return sel;
+  };
+  const input = (value: string, placeholder: string, set: (v: string) => void) => {
+    const x = el("input", { type: "text", autocomplete: "off", spellcheck: "false", placeholder, "aria-label": placeholder });
+    x.value = value;
+    x.addEventListener("input", () => {
+      set(x.value);
+      emit();
+    });
+    return x;
+  };
+  const lineRow = (l: DraftLine, lines: DraftLine[]) => {
+    const uv = el("input", { type: "checkbox" });
+    uv.checked = l.userVerified;
+    uv.addEventListener("change", () => {
+      l.userVerified = uv.checked;
+      emit();
+    });
+    const del = el("button", { type: "button", class: "link" }, s.remove!);
+    del.addEventListener("click", () => {
+      lines.splice(lines.indexOf(l), 1);
+      if (!lines.length) lines.push(emptyLine());
+      emit();
+      render();
+    });
+    const row = el("div", { class: "b-line" },
+      select(REQUIRE_METHODS, l.method, (v) => s[`m.${v}`] ?? v, (v) => (l.method = v)),
+      input(l.signer, s.lineSigner!, (v) => (l.signer = v)),
+      input(l.role, s.lineRole!, (v) => (l.role = v)),
+      input(l.memberOf, s.lineMember!, (v) => (l.memberOf = v)),
+    );
+    if (l.method === "tofu") row.append(input(l.pubkey, s.linePubkey!, (v) => (l.pubkey = v)));
+    row.append(el("label", { class: "check" }, uv, ` ${s.lineUv}`), del);
+    return row;
+  };
+  function render() {
+    root.replaceChildren();
+    root.append(field(s.order!, select(["pending", "guide", "strict"], draft.order, (v) => s[`o.${v}`]!, (v) => (draft.order = v as Draft["order"]))));
+    draft.steps.forEach((st, k) => {
+      const box = el("fieldset", { class: "b-step" }, el("legend", {}, s.step!.replace("{0}", String(k + 1))));
+      box.append(field(s.any!, input(st.any, "", (v) => (st.any = v.replace(/[^0-9]/g, "")))));
+      for (const l of st.lines) box.append(lineRow(l, st.lines));
+      const add = el("button", { type: "button", class: "secondary" }, s.addLine!);
+      add.addEventListener("click", () => {
+        st.lines.push(emptyLine());
+        render();
+      });
+      const del = el("button", { type: "button", class: "link" }, s.remove!);
+      del.addEventListener("click", () => {
+        draft.steps.splice(k, 1);
+        if (!draft.steps.length) draft = emptyDraft();
+        emit();
+        render();
+      });
+      box.append(el("div", { class: "row" }, add, del));
+      root.append(box);
+    });
+    const addStep = el("button", { type: "button", class: "secondary" }, s.addStep!);
+    addStep.addEventListener("click", () => {
+      draft.steps.push({ any: "", lines: [emptyLine()] });
+      render();
+    });
+    root.append(addStep);
+  }
+  render();
+  return api;
 }
 
 function setupForm(s: S, name: string) {
@@ -237,6 +378,7 @@ window.addEventListener("message", (ev) => {
     keys = m.keys;
     w.fillKeys?.();
   }
+  if (m.type === "checked-input") w.applyCheck?.(m.seq, m.result);
   if (m.type === "error") {
     w.showError?.(m.message);
     w.resetSubmit?.();

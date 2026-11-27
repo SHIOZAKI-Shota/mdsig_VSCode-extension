@@ -12,10 +12,10 @@ Signatures are appended to the end of the file as HTML comments, so the rendered
 
 When you open a Markdown file, the extension verifies its signatures. It checks again while you edit and when you save, so changing a single character changes the result right away.
 
-- **Signature view** (right): the result at the top, then three tabs: Signatures, Ranges, and Required. Signatures lists who signed, in which role, and when. Ranges is the same picture as on mdsig.dev: a bracket next to the source lines shows what each signature covers: `#1` covers the body, `#2` covers the body and signature `#1`. Valid signatures each get their own color (green, blue, purple, and so on); invalid ones are red.
+- **Signature view** (right): the result and any document-wide warnings at the top, then the tabs Signatures, Ranges, Required, and Table. Signatures lists who signed, in which role, and when. A display name (`display_name`) chosen by the signer is shown next to the verified signer and marked "(self-declared)". Ranges is the same picture as on mdsig.dev: a bracket next to the source lines shows what each signature covers: `#1` covers the body, `#2` covers the body and signature `#1`. Valid signatures each get their own color (green, blue, purple, and so on); invalid ones are red. Required shows, for each signature that set `require`, the steps, how many signers each step needs, who has signed, and why a signature did not count (signed before its turn, not on the member list, no user verification, and so on). Table shows the signature table built from the verification result, for documents whose body has `<!-- mdsig:signatures -->`.
 - **Sidebar** (left): open it from the md-signature icon in the activity bar. It shows the result and the same tabs as the signature view, with buttons to sign, verify, and add a timestamp.
-- **Editor** (middle): each signature block gets a line above it with its result (`✓ #1 author yamada@laptop · Key only (identity not proven) · ⏱ 2026-11-18T22:06:42Z`). Put the cursor in a block to highlight the range it covers.
-- **Status bar**: shows Verified, Waiting for signatures, or Not verified. Click it to open the signature view.
+- **Editor** (middle): each signature block gets a line above it with its result (`✓ #1 author yamada@laptop · Key only (identity not proven) · ⏱ 2026-11-18T22:06:42Z`). The time comes from a timestamp block after that signature. Put the cursor in a block to highlight the range it covers.
+- **Status bar**: shows Verified, Waiting for signatures, Could not fully check, or Not verified. Could not fully check also appears when a member list or the network needed for the required signatures was not available; Not verified also appears when the requirements use rules the extension does not support. Click it to open the signature view.
 
 ## Catch changes immediately
 
@@ -31,7 +31,7 @@ The Markdown preview does not show HTML comments in the body, yet the words insi
 
 ![Preview of a quote: an extra clause hidden in a comment is shown in a dashed box](docs/images/en/preview.png)
 
-The Problems panel also warns about such content: hidden comments, elements a preview may remove (such as `<script>`), raw HTML, invisible or direction-changing characters, link reference definitions, links whose text differs from the destination, and external images (SPEC 9.5). Section markers (`<!-- mdsig:section … -->`) are not warned about; the preview shows `§ <id>` where each section starts.
+The Problems panel also warns about such content: hidden comments, elements a preview may remove (such as `<script>`), raw HTML, invisible or direction-changing characters, link reference definitions, links whose text differs from the destination, and external images (SPEC 9.5). Section markers (`<!-- mdsig:section … -->`) and the signature table marker (`<!-- mdsig:signatures -->`) are not warned about. The preview shows `§ <id>` where each section starts. It does not draw the signature table; it shows "Signature table (see the signature view)" at the marker instead, because the VS Code preview cannot keep the table apart from the body's HTML, so a fake table written in the body would look the same (SPEC 9.5).
 
 ## Trusting a key seen for the first time
 
@@ -43,9 +43,9 @@ No commands or options to remember. The Sign button in the sidebar opens a form:
 
 1. Choose how readers check your signature (GitHub or GitLab account, company or personal domain, email address, OpenPGP key, or the key only).
 2. Enter the account, domain, or email address and pick a key. Keys are found for you and shown by name.
-3. Add a role or comment if you like, and press Sign.
+3. Add a role, a display name, or a comment if you like, and press Sign.
 
-A timestamp from a time-stamping authority is added by default. An expiry date, signing only some sections, and the signatures still needed after yours are under More options.
+The signer is written in its canonical form (domains and account names in lower case), and a malformed one is pointed out while you type. A timestamp from a time-stamping authority is added by default, as a separate block after your signature block. An expiry date, signing only some sections, and the signatures still needed after yours are under More options. Build the required signatures in the form (steps, signers, roles, user verification, member lists), or edit the `require` value as text; the form shows what the value means ("step 1: all of …") and any mistakes as you type.
 
 <img src="docs/images/en/sign-form.png" alt="The sign form" width="560">
 

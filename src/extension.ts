@@ -5,6 +5,7 @@ import { SidebarProvider, SignatureView } from "./view/panels.ts";
 import { registerFormatterWarnings } from "./formatter.ts";
 import { previewPlugin } from "./preview/plugin.ts";
 import { keyFingerprint } from "@mdsig/core";
+import { setMessageLang } from "./verify/present.ts";
 
 const t = vscode.l10n.t;
 
@@ -22,6 +23,7 @@ function targetDoc(uri?: vscode.Uri): vscode.TextDocument | undefined {
 }
 
 export function activateShared(context: vscode.ExtensionContext, host: Host): Activated {
+  setMessageLang(vscode.env.language.startsWith("ja") ? "ja" : "en");
   const ctl = new VerifyController(host);
   const view = new SignatureView(ctl, context.extensionUri, host.isWeb);
   const sidebar = new SidebarProvider(ctl, context.extensionUri, host.isWeb);

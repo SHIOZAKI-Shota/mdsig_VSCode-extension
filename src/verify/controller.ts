@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
-import { publicHostFetch, verifyDocument, type TofuStore, type VerifyOptions, type VerifyResult } from "@mdsig/core";
-import { layout, type Layout } from "./ranges.ts";
+import { documentLayout, publicHostFetch, verifyDocument, type DocumentLayout, type TofuStore, type VerifyOptions, type VerifyResult } from "@mdsig/core";
 import { knownSignersStore, newKeys, type KnownSigners, type NewKey } from "./tofu.ts";
 
 export interface Host {
@@ -16,7 +15,7 @@ export interface Entry {
   text: string;
   online: boolean;
   result: VerifyResult;
-  layout: Layout;
+  layout: DocumentLayout;
   newKeys: NewKey[];
 }
 
@@ -115,7 +114,7 @@ export class VerifyController implements vscode.Disposable {
       ...(keyserver ? { keyserver } : {}),
       checkRevocation: online && cfg.get<boolean>("verify.checkRevocation", true),
       fetchResources: online && cfg.get<boolean>("verify.fetchResources", false),
-      loadResource: doc.uri.scheme === "untitled" ? undefined : (ref) => loadLocal(doc.uri, ref),
+      loadResource: doc.uri.scheme === "untitled" ? undefined : (path) => loadLocal(doc.uri, path),
       ...(extraTsaRoots.length ? { extraTsaRoots } : {}),
     };
   }
@@ -129,12 +128,12 @@ export class VerifyController implements vscode.Disposable {
     try {
       result = await verifyDocument(text, await this.options(doc, online, tofu, accept));
     } catch (e) {
-      result = { ok: false, signatures: [], agreement: { status: "none", required: [], missing: [], violations: [] }, warnings: [], error: String((e as Error).message ?? e) };
+      result = { ok: false, signatures: [], agreement: { status: "none", required: [], missing: [], violations: [], next: [], satisfied: [], declarations: [] }, warnings: [], error: String((e as Error).message ?? e) };
     }
     if (doc.isClosed) return undefined;
     const prev = this.cache.get(doc.uri.toString());
     if (!online && prev?.online && prev.text === text) return prev;
-    const entry: Entry = { uri: doc.uri.toString(), version, text, online, result, layout: layout(text), newKeys: newKeys(result) };
+    const entry: Entry = { uri: doc.uri.toString(), version, text, online, result, layout: documentLayout(text), newKeys: newKeys(result) };
     this.cache.set(entry.uri, entry);
     this.emitter.fire(entry);
     return entry;
@@ -154,9 +153,10 @@ function resolvePath(doc: vscode.Uri, p: string): vscode.Uri {
 
 const MAX_RESOURCE = 50 * 1024 * 1024;
 
-// security: the core rejects ".." and absolute refs, so this stays inside the document's folder
-async function loadLocal(doc: vscode.Uri, ref: string): Promise<Uint8Array | null> {
-  const uri = vscode.Uri.joinPath(doc, "..", ...ref.split("/"));
+// security: the core passes a percent-decoded path without "..", "." or empty segments; ":" and "\\" are refused here so Windows cannot reach a drive or an alternate data stream
+async function loadLocal(doc: vscode.Uri, path: string): Promise<Uint8Array | null> {
+  if (/[:\\]/.test(path)) return null;
+  const uri = vscode.Uri.joinPath(doc, "..", ...path.split("/"));
   try {
     const st = await vscode.workspace.fs.stat(uri);
     if (st.type !== vscode.FileType.File || st.size > MAX_RESOURCE) return null;

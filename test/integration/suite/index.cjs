@@ -80,9 +80,11 @@ const tests = {
     const doc = await open("valid-cosigned.md");
     const ls = await until(async () => {
       const x = await lenses(doc);
-      return x.length >= 2 ? x : null;
-    }, "two lenses");
-    assert.ok(ls.every((x) => x.command.title.startsWith("−")), ls.map((x) => x.command.title).join(" | "));
+      return x.length >= 3 ? x : null;
+    }, "three lenses");
+    const titles = ls.map((x) => x.command.title);
+    assert.ok(titles.slice(0, 2).every((x) => x.startsWith("−")), titles.join(" | "));
+    assert.ok(/^[✓−]/.test(titles[2]), titles.join(" | "));
     assert.equal(diags(doc).filter((d) => d.severity === vscode.DiagnosticSeverity.Error).length, 0);
   },
   async "editing a signed document breaks the signature live"() {
@@ -117,6 +119,11 @@ const tests = {
     const h3 = await vscode.commands.executeCommand("markdown.api.render", scoped);
     assert.match(h3, /mdsig-section[^>]*>§ terms/);
     assert.doesNotMatch(h3, /mdsig-hidden-label">[^<]*<\/span> mdsig:section/);
+    const table = await open("table-marker.md");
+    const h4 = await vscode.commands.executeCommand("markdown.api.render", table);
+    assert.match(h4, /mdsig-section[^>]*>▦/);
+    assert.doesNotMatch(h4, /mdsig-hidden-label">[^<]*<\/span> mdsig:signatures/);
+    assert.equal(diags(table).filter((d) => d.code === "hidden-comment").length, 0);
   },
   async "commands run"() {
     await open("valid-scoped-edited.md");

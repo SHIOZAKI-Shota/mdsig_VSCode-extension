@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
+import { HIDDEN_CHARACTER_RE } from "@mdsig/core";
 import type { VerifyController } from "../verify/controller.ts";
-import { lensText, mark, statusText, summarize, summaryText, summaryTone, tone } from "../verify/present.ts";
-import { isSectionMarker } from "../verify/findings.ts";
+import { lensText, mark, statusText, summarize, summaryMark, summaryText, summaryTone, tone } from "../verify/present.ts";
+import { isSectionMarker, isSignatureMarker } from "../verify/findings.ts";
 
 const t = vscode.l10n.t;
 
-const HIDDEN_CHARS = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F\\u00AD\\u061C\\u180E\\u200B\\u200E\\u200F\\u2028-\\u202E\\u2060-\\u2069\\uFEFF]", "g");
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -14,7 +14,7 @@ function showHidden(): boolean {
 }
 
 function markChars(escaped: string): string {
-  return escaped.replace(HIDDEN_CHARS, (c) => `<span class="mdsig-char" title="${esc(t("Invisible character"))}">⟨U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}⟩</span>`);
+  return escaped.replace(HIDDEN_CHARACTER_RE, (c) => `<span class="mdsig-char" title="${esc(t("Invisible character"))}">⟨U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}⟩</span>`);
 }
 
 const COMMENT = /<!--([\s\S]*?)-->/g;
@@ -49,6 +49,7 @@ export function previewPlugin(ctl: VerifyController) {
           const id = /^mdsig:section\s+(\S+)$/.exec(body.trim())?.[1];
           return id ? `<span class="mdsig-section" title="${esc(t("Section {0}", id))}">§ ${esc(id)}</span>` : "";
         }
+        if (isSignatureMarker(body)) return `<span class="mdsig-section" title="${esc(t("The signature table is drawn in the signature view, outside the document"))}">▦ ${esc(t("Signature table (see the signature view)"))}</span>`;
         if (!showHidden()) return whole;
         return `<span class="mdsig-hidden" title="${esc(t("This comment is not shown when rendered, but it is part of what is signed"))}"><span class="mdsig-hidden-label">${esc(t("Hidden comment"))}</span> ${markChars(esc(body.trim()))}</span>`;
       });
@@ -79,7 +80,7 @@ export function previewPlugin(ctl: VerifyController) {
       if (!e || (e.result.signatures.length === 0 && !e.layout.tail)) return body;
       const k = summarize(e.result);
       const s = summaryText(t, e.result);
-      const symbol = k === "verified" ? "✓" : k === "pending" ? "…" : k === "offline" ? "−" : k === "incomplete" ? "?" : "✗";
+      const symbol = summaryMark(k);
       const chips = e.result.signatures.map((x) => `<span class="mdsig-chip mdsig-${tone(x)}">${mark(x)} #${x.index} ${esc(x.fields.signer ?? "")}</span>`).join("");
       const banner = `<div class="mdsig-banner mdsig-${summaryTone(k)}"><span class="mdsig-seal">${symbol}</span><b>${esc(s.title)}</b> <span>${esc(s.detail)}</span><div class="mdsig-chips">${chips}</div></div>\n`;
       return banner + body;

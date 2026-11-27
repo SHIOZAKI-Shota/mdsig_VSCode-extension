@@ -5,7 +5,7 @@ import { runTests } from "@vscode/test-electron";
 
 const root = resolve(import.meta.dirname, "../..");
 const workspace = mkdtempSync(join(tmpdir(), "mdsig-it-"));
-for (const f of ["valid-single.md", "tampered.md", "unsigned-trailer.md", "valid-cosigned.md", "valid-scoped-edited.md"]) cpSync(join(root, "test/fixtures/examples", f), join(workspace, f));
+for (const f of ["valid-single.md", "tampered.md", "unsigned-trailer.md", "valid-cosigned.md", "valid-scoped-edited.md", "table-marker.md"]) cpSync(join(root, "test/fixtures/examples", f), join(workspace, f));
 mkdirSync(join(workspace, ".vscode"));
 writeFileSync(join(workspace, ".vscode/settings.json"), JSON.stringify({ "mdsig.verify.network": "never", "mdsig.warnFormatters": false }));
 

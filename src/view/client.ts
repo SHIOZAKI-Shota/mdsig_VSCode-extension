@@ -113,7 +113,9 @@ function sigList(m: ViewModel): HTMLElement {
   for (const c of m.cards) {
     const li = el("li", hue(c.index, c.tone));
     const top = el("div", "sig-top");
-    top.append(el("span", "idx", `#${c.index}`), el("span", "signer", c.signer));
+    top.append(el("span", "idx", `#${c.index}`));
+    if (c.name) top.append(el("span", "declared", c.name));
+    top.append(el("span", "signer", c.signer));
     if (c.role) top.append(el("span", "badge", c.role));
     top.append(el("span", `status t-${c.tone}`, `${c.mark} ${c.status}`));
     li.append(top, el("div", "meta", c.method));
@@ -142,24 +144,63 @@ function sigList(m: ViewModel): HTMLElement {
 
 function stepList(m: ViewModel): HTMLElement {
   const ul = el("ul", "sigs");
-  const li = el("li");
-  const steps = el("ul", "steps");
-  for (const st of m.steps) {
-    if (st.label) steps.append(el("li", `step${st.done ? " done" : ""}`, `${st.done ? "✓" : "…"} ${st.label}`));
-    for (const mem of st.members) steps.append(el("li", mem.done ? "done" : "", `${mem.done ? "✓" : "○"} ${mem.text}`));
+  for (const d of m.agreement) {
+    const li = el("li");
+    const top = el("div", "sig-top");
+    top.append(el("span", "signer", d.title), el("span", `status t-${d.tone}`, d.status));
+    li.append(top);
+    for (const n of d.notes) li.append(el("div", "meta", n));
+    const steps = el("ul", "steps");
+    for (const st of d.steps) {
+      if (st.label) steps.append(el("li", `step${st.done ? " done" : ""}`, `${st.done ? "✓" : "…"} ${st.label}`));
+      for (const mem of st.members) {
+        const item = el("li", mem.done ? "done" : "", `${mem.done ? "✓" : "○"} ${mem.text}`);
+        for (const n of mem.notes) item.append(el("span", "step-note", n));
+        steps.append(item);
+      }
+    }
+    li.append(steps);
+    ul.append(li);
   }
-  li.append(steps);
-  ul.append(li);
   return ul;
 }
 
-type TabId = "signatures" | "ranges" | "agreement";
+function sigTable(m: ViewModel): HTMLElement {
+  const wrap = el("div", "sig-table");
+  wrap.append(el("p", "note", m.strings.tableNote));
+  const table = el("table");
+  const head = el("tr");
+  for (const k of ["colNumber", "colSigner", "colMethod", "colRole", "colTime", "colStatus"]) head.append(el("th", "", m.strings[k]));
+  table.append(head);
+  for (const r of m.table ?? []) {
+    const tr = el("tr");
+    const who = el("td");
+    if (r.name) who.append(el("span", "declared", r.name));
+    who.append(el("span", "signer", r.signer));
+    tr.append(el("td", "idx", r.number), who, el("td", "", r.method), el("td", "", r.role), el("td", "mono", r.time), el("td", `t-${r.tone}`, r.status));
+    table.append(tr);
+  }
+  wrap.append(table);
+  return wrap;
+}
+
+function warningList(m: ViewModel): HTMLElement {
+  const box = el("div", "warnings");
+  box.append(el("b", "", m.strings.warnings));
+  const ul = el("ul");
+  for (const w of m.warnings) ul.append(el("li", "", w));
+  box.append(ul);
+  return box;
+}
+
+type TabId = "signatures" | "ranges" | "agreement" | "table";
 
 function tabs(m: ViewModel): HTMLElement {
   const items: [TabId, string, () => HTMLElement][] = [];
   if (m.cards.length) items.push(["signatures", m.strings.signatures!, () => sigList(m)]);
   items.push(["ranges", m.strings.ranges!, () => figure(m)]);
-  if (m.steps.length) items.push(["agreement", m.strings.agreementTab!, () => stepList(m)]);
+  if (m.agreement.length) items.push(["agreement", m.strings.agreementTab!, () => stepList(m)]);
+  if (m.table) items.push(["table", m.strings.tableTab!, () => sigTable(m)]);
   const wrap = el("div", "tabbed");
   if (items.length === 1) {
     wrap.append(items[0]![2]());
@@ -220,7 +261,7 @@ function render(m: ViewModel | null, strings: Record<string, string>, doc: boole
     return;
   }
   const signed = m.cards.length > 0;
-  const note = m.online ? [] : [el("p", "note", m.strings.offline)];
+  const note = [...(m.online ? [] : [el("p", "note", m.strings.offline)]), ...(m.warnings.length ? [warningList(m)] : [])];
   if (mode === "panel") root.append(summary(m), ...note, actions(m.strings, signed), tabs(m));
   else root.append(summary(m), ...note, tabs(m));
 }

@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import type { BlockResult } from "@mdsig/core";
 import type { Entry, VerifyController } from "../verify/controller.ts";
-import { lensText, mark, methodLabel, signerLabel, statusText, summarize, summaryText, tone, type Tone } from "../verify/present.ts";
+import { coreText, declaredName, lensText, mark, methodLabel, signerLabel, statusText, summarize, summaryText, timeText, tone, type Tone } from "../verify/present.ts";
+import { passkeyText } from "../view/model.ts";
 import { countByKind, scanBody, type FindingKind } from "../verify/findings.ts";
 import type { NewKey } from "../verify/tofu.ts";
 
@@ -33,7 +34,7 @@ export function registerDiagnostics(ctl: VerifyController): vscode.Disposable {
       if (s.status === "valid" || (s.status === "unresolved" && s.code === "offline")) continue;
       const span = layout.blocks.find((b) => b.index === s.index);
       if (!span) continue;
-      const d = new vscode.Diagnostic(range(span.from, span.from), `#${s.index} ${statusText(t, s)}${s.message ? ` (${s.message})` : ""}`, s.status === "unresolved" ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error);
+      const d = new vscode.Diagnostic(range(span.from, span.from), `#${s.index} ${statusText(t, s)}${s.message ? ` (${coreText(s.message)})` : ""}`, s.status === "unresolved" ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error);
       d.source = "md-signature";
       d.code = s.code;
       out.push(d);
@@ -54,8 +55,17 @@ export function registerDiagnostics(ctl: VerifyController): vscode.Disposable {
       d.source = "md-signature";
       out.push(d);
     }
-    if (last && result.agreement.status === "violated") {
-      const d = new vscode.Diagnostic(range(last.from, last.from), t("Signatures were made out of the required order"), vscode.DiagnosticSeverity.Error);
+    const k = summarize(result);
+    if (last && (k === "violated" || k === "unsupported" || k === "undetermined")) {
+      const detail = result.agreement.declarations.flatMap((x) => (x.detail ? [coreText(x.detail)] : [])).join("; ");
+      const d = new vscode.Diagnostic(range(last.from, last.from), `${summaryText(t, result).detail}${detail ? ` (${detail})` : ""}`, k === "undetermined" ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error);
+      d.source = "md-signature";
+      d.code = `agreement-${result.agreement.status}`;
+      out.push(d);
+    }
+    const at = (last ?? layout.tail)?.from ?? 1;
+    for (const w of result.warnings) {
+      const d = new vscode.Diagnostic(range(at, at), coreText(w), vscode.DiagnosticSeverity.Information);
       d.source = "md-signature";
       out.push(d);
     }
@@ -120,21 +130,23 @@ function hoverMarkdown(s: BlockResult, nk?: NewKey): vscode.MarkdownString {
   const f = s.fields;
   const rows: [string, string | undefined][] = [
     [t("Signer"), signerLabel(s)],
+    [t("Display name"), declaredName(t, s) || undefined],
     [t("Method"), methodLabel(t, f.method)],
     [t("Role"), f.role],
     [t("Reason"), f.reason],
     [t("Signed at (claimed)"), f.ts],
-    [t("Timestamp"), s.tsa?.verified ? `${s.tsa.genTime} (${s.tsa.signer})` : s.tsa ? t("present, not verified") : undefined],
+    [t("Timestamp"), timeText(t, s) ?? (s.tsa && !s.tsa.verified ? t("present, not verified") : undefined)],
     [t("Key from"), s.key?.source ?? (s.pgp?.keySource ? `OpenPGP ${s.pgp.fpr ?? ""} (${s.pgp.keySource})` : undefined)],
     [t("Expires"), f.expires],
     [t("Covers"), s.partial ? s.partial.sections.join(", ") : undefined],
     [t("Withdrawal check"), s.revocation ? s.revocation.status : undefined],
-    [t("Passkey"), s.webauthn ? `rp_id ${s.webauthn.rpId}` : undefined],
+    [t("Passkey"), s.webauthn ? passkeyText(t, s.webauthn) : undefined],
     [t("Key seen for the first time"), nk ? `${nk.fingerprint} (${t("not trusted yet")})` : undefined],
   ];
   for (const [k, v] of rows) if (v) md.appendMarkdown(`${esc(k)}: ${esc(v)}  \n`);
   for (const r of s.resources ?? []) md.appendMarkdown(`${r.status === "ok" ? "✓" : r.status === "not-checked" ? "−" : "✗"} ${esc(r.ref)}  \n`);
-  if (s.message) md.appendMarkdown(`\n${esc(s.message)}\n`);
+  if (s.message) md.appendMarkdown(`\n${esc(coreText(s.message))}\n`);
+  for (const w of s.warnings) md.appendMarkdown(`\n${esc(coreText(w))}\n`);
   return md;
 }
 
@@ -151,10 +163,10 @@ export function registerStatusBar(ctl: VerifyController): vscode.Disposable {
     }
     const k = summarize(e.result);
     const s = summaryText(t, e.result);
-    const icon = k === "verified" ? "$(pass-filled)" : k === "pending" ? "$(clock)" : k === "offline" ? "$(circle-slash)" : k === "incomplete" ? "$(question)" : "$(error)";
+    const icon = k === "verified" ? "$(pass-filled)" : k === "pending" ? "$(clock)" : k === "offline" ? "$(circle-slash)" : k === "incomplete" || k === "undetermined" ? "$(question)" : "$(error)";
     item.text = `${icon} ${s.title}`;
     item.tooltip = s.detail;
-    item.backgroundColor = k === "failed" || k === "violated" || k === "broken" ? new vscode.ThemeColor("statusBarItem.errorBackground") : undefined;
+    item.backgroundColor = k === "failed" || k === "violated" || k === "unsupported" || k === "broken" ? new vscode.ThemeColor("statusBarItem.errorBackground") : undefined;
     item.show();
   };
   return vscode.Disposable.from(item, ctl.onDidVerify(update), vscode.window.onDidChangeActiveTextEditor(update));
